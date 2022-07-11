@@ -145,7 +145,6 @@ headers = {
 target_url = 'https://{domain}/torrents.php?search={search}&order={order}&category={category}&page={page}&by={by}'
 
 def main():
-    global cookies
     orderkeys = ["data", "filename", "leechers", "seeders", "size", ""]
     sortkeys = ["title", "date", "size", "seeders", "leechers", ""]
 
