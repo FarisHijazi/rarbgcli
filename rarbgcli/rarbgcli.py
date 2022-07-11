@@ -35,12 +35,9 @@ PROGRAM_DIRECTORY = Path(__file__).parent.resolve()
 real_print = print
 print = print if sys.stdout.isatty() else lambda *a, **k: None
 COOKIES_PATH = os.path.join(PROGRAM_DIRECTORY, '.cookies.json')
-global cookies
-cookies = None
 
 
 def deal_with_threat_defence(threat_defence_url):
-    global cookies
     # if sys.stdout.isatty():
     #     real_print("Please avoid using a pipe for CAPTCHA setup, you may need to rerun the command",
     #     file=sys.stderr, flush=True)
@@ -63,23 +60,23 @@ def deal_with_threat_defence(threat_defence_url):
 
     cookies = dict([x.split('=') for x in cookies.split('; ') if len(x.split('=')) == 2])
 
-    # save cookies to json file
-    with open(COOKIES_PATH, 'w') as f:
-        json.dump(cookies, f)
-    return
+    return cookies
 
 
-def get_page_html(target_url):
+def get_page_html(target_url, cookies):
     while True:
         r = requests.get(target_url, headers=headers, cookies=cookies)
         print('going to page', r.url)
         if 'threat_defence.php' not in r.url:
             break
         print('defence detected')
-        deal_with_threat_defence(r.url)
+        cookies = deal_with_threat_defence(r.url)
+        # save cookies to json file
+        with open(COOKIES_PATH, 'w') as f:
+            json.dump(cookies, f)
 
     data = r.text.encode('utf-8')
-    return r, data
+    return r, data, cookies
 
 
 def extract_magnet(anchor):
@@ -196,9 +193,10 @@ def main():
     i = 1
     while True:
         print('scraping page', i)
-        r, html = get_page_html(
+        r, html, cookies = get_page_html(
             target_url.format(domain=args.domain, search=args.search, order=args.order, category=cat_code_dict[args.category], page=i,
-                              by='DESC' if args.descending else 'ASC'))
+                              by='DESC' if args.descending else 'ASC'),
+                              cookies=cookies)
 
         with open(os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + f'_torrents_{i}.html'), 'w', encoding='utf8') as f:
             f.write(r.text)
