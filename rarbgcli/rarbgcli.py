@@ -12,10 +12,8 @@ The program is pipe-friendly, so you could use this tool in conjunction with the
 
 The --magnet option is a convenience option instead of filtering it every time with `jq`, the bellow 2 lines are equivalent:
 
-The --magnet option is a convenience option instead of filtering it every time with `jq`, the bellow 2 lines are equivalent:
-
-    $ rarbgcli "the stranger things 3" --category movies --limit 10 | jq .[].magnet | qbittorrent
-    $ rarbgcli "the stranger things 3" --category movies --limit 10 --magnet | qbittorrent
+    $ rarbgcli "the stranger things 3" --category movies --limit 10 | jq .[].magnet | xargs qbittorrent
+    $ rarbgcli "the stranger things 3" --category movies --limit 10 --magnet | xargs qbittorrent
 
 """
 

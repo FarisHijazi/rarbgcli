@@ -6,6 +6,10 @@ Outputs list of results containing magnet links from a [rarbg.to](rarbg.to) sear
 
 ![usage](assets/usage.gif)
 
+You can even pipe `|` the magnet links to your favorite bittorrent client
+
+![usage pipe](assets/usage_pipe_to_client.gif)
+
 ## Installation
 
 From PyPi (stable)
@@ -48,8 +52,8 @@ The program is pipe-friendly, so you could use this tool in conjunction with the
 The `--magnet` option is a convenience option instead of filtering it every time with `jq`, the bellow 2 lines are equivalent:
 
 ```sh
-rarbgcli "the stranger things 3" --category movies --limit 10 | jq .[].magnet | bittorrent
-rarbgcli "the stranger things 3" --category movies --limit 10 --magnet | bittorrent
+rarbgcli "the stranger things 3" --category movies --limit 10 | jq .[].magnet | xargs qbittorrent
+rarbgcli "the stranger things 3" --category movies --limit 10 --magnet | xargs qbittorrent
 ```
 
 ## CAPTCHA
