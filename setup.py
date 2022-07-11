@@ -25,8 +25,8 @@ setuptools.setup(
     keywords='html table htmltable html-table base64 report',
     entry_points={
         'console_scripts': [
-            'rarbgcli=rarbgcli.rarbgcli:main',
-            'rarbg=rarbgcli.rarbgcli:main',
+            'rarbgcli=rarbgcli.rarbgcli:rarbgcli',
+            'rarbg=rarbgcli.rarbgcli:rarbgcli',
         ]
     }
     )

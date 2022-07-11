@@ -4,6 +4,18 @@ RARBG command line interface for scraping the [rarbg.to](rarbg.to) torrent searc
 
 Outputs list of results containing magnet links from a [rarbg.to](rarbg.to) search.
 
+<!-- TODO: add GIF here -->
+
+## Installation
+
+From PyPi (stable)
+    
+    pip install rarbgcli
+
+From source (latest)
+    
+    pip install git+https://github.com/FarisHijazi/rarbgcli
+
 ## Usage
 
     positional arguments:
@@ -26,13 +38,13 @@ Outputs list of results containing magnet links from a [rarbg.to](rarbg.to) sear
 Example
 
 ```sh
-python rarbgcli.py "the stranger things 3" --category movies --limit 10 --magnets
+rarbgcli "the stranger things 3" --category movies --limit 10 --magnet
 ```
 
 ### Piping `|`
 The program is pipe-friendly, so you could use this tool in conjunction with the [jq](https://stedolan.github.io/jq/) command to filter the JSON output, and then pipe it to your favorite torrent client.
 
-The --magnet option is a convenience option instead of filtering it every time with `jq`, the bellow 2 lines are equivalent:
+The `--magnet` option is a convenience option instead of filtering it every time with `jq`, the bellow 2 lines are equivalent:
 
 ```sh
 rarbgcli "the stranger things 3" -category movies --limit 10 | jq .[].magnet | bittorrent
@@ -46,3 +58,10 @@ To get around the captcha, the user will be prompted to solve it and enter the c
 I tried many ways to automate this process (using selenium and tesseract), but it just ends up being overkill, hard to maintain across platforms, and I still didn't get it to work.
 
 This might be automated one day, because it is possible.
+
+## Development
+
+- make changes
+- `./test.sh` # make sure tests pass
+- `git commit ...`
+- `./build.sh` # will push automatically
