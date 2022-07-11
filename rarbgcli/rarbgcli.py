@@ -147,7 +147,8 @@ headers = {
 
 target_url = 'https://{domain}/torrents.php?search={search}&order={order}&category={category}&page={page}&by={by}'
 
-if __name__ == '__main__':
+def main():
+    global cookies
     orderkeys = ["data", "filename", "leechers", "seeders", "size", ""]
     sortkeys = ["title", "date", "size", "seeders", "leechers", ""]
 
@@ -167,6 +168,8 @@ if __name__ == '__main__':
         assert args.order, '--descending requires --order'
 
     out_history_fname = dict_to_fname(args)
+    os.makedirs(os.path.join(PROGRAM_DIRECTORY, '.history'), exist_ok=True)
+
     out_history_path = os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + '.json')
     if not args.no_cache:
         if os.path.exists(out_history_path):
@@ -243,6 +246,9 @@ if __name__ == '__main__':
         real_print(json.dumps(dicts_all))
 
     # save history to json file
-    os.makedirs(os.path.join(PROGRAM_DIRECTORY, '.history'), exist_ok=True)
     with open(out_history_path, 'w', encoding='utf8') as f:
         json.dump(dicts_all, f, indent=4)
+
+
+if __name__ == '__main__':
+    main()
