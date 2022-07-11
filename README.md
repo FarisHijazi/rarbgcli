@@ -77,6 +77,6 @@ In the case that it doesn't, see the instructions at the bottom to manually solv
 - `git commit ...`
 - `./build.sh` # will push automatically
 
-### Todo list
+### To-do list
 
 - [ ] add interactive mode
