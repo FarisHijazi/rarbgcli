@@ -58,11 +58,15 @@ rarbgcli "the stranger things 3" --category movies --limit 10 --magnet | xargs q
 
 ## CAPTCHA
 
-To get around the captcha, the user will be prompted to solve it and enter the cookie in the terminal.
+CAPTCHA should automatically be solved using Selenium Chrome driver and `tesseract`.
 
-I tried many ways to automate this process (using selenium and tesseract), but it just ends up being overkill, hard to maintain across platforms, and I still didn't get it to work.
+In the case that it doesn't, see the instructions at the bottom to manually solve the CAPTCHA and save the cookies.
 
-This might be automated one day, because it is possible.
+~To get around the captcha, the user will be prompted to solve it and enter the cookie in the terminal.~
+
+~I tried many ways to automate this process (using selenium and tesseract), but it just ends up being overkill, hard to maintain across platforms, and I still didn't get it to work.~
+
+~This might be automated one day, because it is possible.~
 
 ![](assets/solvingCAPTCHA.gif)
 
@@ -72,3 +76,7 @@ This might be automated one day, because it is possible.
 - `./test.sh` # make sure tests pass
 - `git commit ...`
 - `./build.sh` # will push automatically
+
+### Todo list
+
+- [ ] add interactive mode

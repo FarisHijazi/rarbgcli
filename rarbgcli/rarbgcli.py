@@ -28,6 +28,8 @@ from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+import time
+from sys import platform
 
 PROGRAM_DIRECTORY = Path(__file__).parent.resolve()
 real_print = print
@@ -35,7 +37,81 @@ print = print if sys.stdout.isatty() else lambda *a, **k: None
 COOKIES_PATH = os.path.join(PROGRAM_DIRECTORY, '.cookies.json')
 
 
-def deal_with_threat_defence(threat_defence_url):
+## Captcha solving taken from https://github.com/confident-hate/seedr-cli
+
+def solveCaptcha(threat_defence_url):
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.keys import Keys
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    import pytesseract
+    from PIL import Image
+    from io import BytesIO
+
+    def img2txt():
+        try:
+            clk_here_button = driver.find_element_by_link_text('Click here')
+            clk_here_button.click()
+            time.sleep(10)
+            WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.ID, 'solve_string'))
+            )
+        except:
+            pass
+        finally:
+            element = driver.find_elements_by_css_selector('img')[1]
+            location = element.location
+            size = element.size
+            png = driver.get_screenshot_as_png()
+            x = location['x']
+            y = location['y']
+            width = location['x']+size['width']
+            height = location['y']+size['height']
+            im = Image.open(BytesIO(png))
+            im = im.crop((int(x), int(y), int(width), int(height)))
+            return pytesseract.image_to_string(im)
+
+    options = Options()
+    options.add_argument('--no-sandbox')
+    options.add_argument("--headless")
+    options.add_argument("--log-level=3")
+
+    driver = webdriver.Chrome(
+        chrome_options=options,
+        # chrome_profile=FFprofile,
+        # service_log_path=StringIO
+        )
+    driver.implicitly_wait(10)
+    driver.get(threat_defence_url)
+    
+    if platform == 'win32':
+        pytesseract.pytesseract.tesseract_cmd = os.path.join(PROGRAM_DIRECTORY, 'Tesseract-OCR', 'tesseract')
+
+    try:
+        solution = img2txt()
+    except pytesseract.TesseractNotFoundError:
+        print("Tesseract not found. Downloading tesseract ...")
+        import download_tesseract
+        download_tesseract.main(PROGRAM_DIRECTORY)
+        solution = img2txt()
+
+    text_field = driver.find_element_by_id('solve_string')
+    text_field.send_keys(solution)
+    try:
+        text_field.send_keys(Keys.RETURN)
+    except Exception as e:
+        print(e)
+
+    time.sleep(3)
+    selCookie = driver.get_cookies()
+    cookies = {c['name']: c['value'] for c in selCookie}
+    driver.close()
+    return cookies
+
+
+def deal_with_threat_defence_manual(threat_defence_url):
     # if sys.stdout.isatty():
     #     real_print("Please avoid using a pipe for CAPTCHA setup, you may need to rerun the command",
     #     file=sys.stderr, flush=True)
@@ -59,6 +135,14 @@ def deal_with_threat_defence(threat_defence_url):
     cookies = dict([x.split('=') for x in cookies.split('; ') if len(x.split('=')) == 2])
 
     return cookies
+
+
+def deal_with_threat_defence(threat_defence_url):
+    try:
+        return solveCaptcha(threat_defence_url)
+    except Exception as e:
+        print('failed to solve captcha, please solve manually', e)
+        return deal_with_threat_defence_manual(threat_defence_url)
 
 
 def get_page_html(target_url, cookies):
