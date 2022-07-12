@@ -4,7 +4,9 @@ RARBG command line interface for scraping the [rarbg.to](rarbg.to) torrent searc
 
 Outputs a torrent information as JSON from a [rarbg.to](rarbg.to) search.
 
-![usage](assets/usage.gif)
+![usage interactive](assets/usage_interactive.gif)
+
+---
 
 You can even pipe `|` the magnet links to your favorite bittorrent client
 
@@ -21,6 +23,8 @@ From source (latest)
     pip install git+https://github.com/FarisHijazi/rarbgcli
 
 ## Usage
+
+Both aliases are valid for the same command: `rarbg` or `rarbgcli`
 
     usage:
         [-h] [--category {movies,xxx,music,tvshows,software,games,nonxxx,}] [--limit LIMIT] [--domain DOMAIN]
