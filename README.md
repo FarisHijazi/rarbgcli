@@ -33,7 +33,7 @@ From source (latest)
     --domain DOMAIN, -d DOMAIN
                             domain to search, you could put an alternative mirror domain here (default: rarbgunblocked.org)
     --magnet, -m          output magnet links (default: False)
-    --no_cache, -nc       don't use cached results from previous searches (default: False)
+    --cache               use cached results from previous searches (default: False)
     --order {data,filename,leechers,seeders,size,}, -r {data,filename,leechers,seeders,size,}
                             order results (before query) by this key. empty string means no sort (default: )
     --sort {title,date,size,seeders,leechers,}, -s {title,date,size,seeders,leechers,}

@@ -22,13 +22,13 @@ import os
 import re
 import subprocess
 import sys
-from pathlib import Path
+import time
 import urllib
+from pathlib import Path
+from sys import platform
 
 import requests
 from bs4 import BeautifulSoup
-import time
-from sys import platform
 
 PROGRAM_DIRECTORY = Path(__file__).parent.resolve()
 real_print = print
@@ -66,8 +66,8 @@ def solveCaptcha(threat_defence_url):
             png = driver.get_screenshot_as_png()
             x = location['x']
             y = location['y']
-            width = location['x']+size['width']
-            height = location['y']+size['height']
+            width = location['x'] + size['width']
+            height = location['y'] + size['height']
             im = Image.open(BytesIO(png))
             im = im.crop((int(x), int(y), int(width), int(height)))
             return pytesseract.image_to_string(im)
@@ -81,10 +81,10 @@ def solveCaptcha(threat_defence_url):
         chrome_options=options,
         # chrome_profile=FFprofile,
         # service_log_path=StringIO
-        )
+    )
     driver.implicitly_wait(10)
     driver.get(threat_defence_url)
-    
+
     if platform == 'win32':
         pytesseract.pytesseract.tesseract_cmd = os.path.join(PROGRAM_DIRECTORY, 'Tesseract-OCR', 'tesseract')
 
@@ -188,7 +188,7 @@ def dict_to_fname(d):
     del args_dict['sort']
     del args_dict['magnet']
     del args_dict['domain']
-    del args_dict['no_cache']
+    del args_dict['cache']
     filename = json.dumps(args_dict, indent=None, separators=(',', '='), ensure_ascii=False)[1:-1].replace('"', '')
     return filename
 
@@ -225,20 +225,24 @@ headers = {
 
 target_url = 'https://{domain}/torrents.php?search={search}&order={order}&category={category}&page={page}&by={by}'
 
+
 def main():
     orderkeys = ["data", "filename", "leechers", "seeders", "size", ""]
     sortkeys = ["title", "date", "size", "seeders", "leechers", ""]
 
     parser = argparse.ArgumentParser(__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('search', help='search term')
+    parser.add_argument('search', help='Search term')
     parser.add_argument('--category', '-c', choices=cat_code_dict.keys(), default='')
-    parser.add_argument('--limit', '-l', type=float, default='inf', help='limit number of torrent magnet links')
-    parser.add_argument('--domain', '-d', default='rarbgunblocked.org', help='domain to search, you could put an alternative mirror domain here')
-    parser.add_argument('--order', '-r', choices=orderkeys, default='', help='order results (before query) by this key. empty string means no sort')
-    parser.add_argument('--descending', action='store_true', help='order in descending order (only available for --order)')
-    parser.add_argument('--magnet', '-m', action='store_true', help='output magnet links')
-    parser.add_argument('--sort', '-s', choices=sortkeys, default='', help='sort results (after scraping) by this key. empty string means no sort')
-    parser.add_argument('--no_cache', '-nc', action='store_true', help='don\'t use cached results from previous searches')
+    parser.add_argument('--limit', '-l', type=float, default='inf', help='Limit number of torrent magnet links')
+    parser.add_argument('--domain', '-d', default='rarbgunblocked.org', help='Domain to search, you could put an alternative mirror domain here')
+    parser.add_argument('--order', '-r', choices=orderkeys, default='', help='Order results (before query) by this key. empty string means no sort')
+    parser.add_argument('--descending', action='store_true', help='Order in descending order (only available for --order)')
+    
+    parser.add_argument('--magnet', '-m', action='store_true', help='Output magnet links')
+    parser.add_argument('--sort', '-s', choices=sortkeys, default='', help='Sort results (after scraping) by this key. empty string means no sort')
+    
+    parser.add_argument('--cache', action='store_true', help='Use cached results from previous searches')
+    parser.add_argument('--no_cookie', action='store_true', help='Don\'t use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)')
     args = parser.parse_args()
     assert args.limit >= 1, '--limit must be greater than 1'
     if args.descending:
@@ -246,26 +250,29 @@ def main():
 
     out_history_fname = dict_to_fname(args)
     os.makedirs(os.path.join(PROGRAM_DIRECTORY, '.history'), exist_ok=True)
-
     out_history_path = os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + '.json')
-    if not args.no_cache:
-        if os.path.exists(out_history_path):
-            with open(out_history_path, 'r') as f:
-                history = json.load(f)
-            print('using cached results from', out_history_path)
-            dicts_all = history
-            if args.magnet:
-                real_print('\n'.join([t['magnet'] for t in dicts_all]))
-            else:
-                real_print(json.dumps(dicts_all))
-            sys.exit(0)
 
-    # read cookies from json file
+    if args.cache and os.path.exists(out_history_path):
+        with open(out_history_path, 'r') as f:
+            history = json.load(f)
+        print('Using cached results from', out_history_path)
+        dicts_all = history
+        if args.magnet:
+            real_print('\n'.join([t['magnet'] for t in dicts_all]))
+        else:
+            real_print(json.dumps(dicts_all))
+        sys.exit(0)
+
+    # make empty cookie if cookie doesn't already exist
     if not os.path.exists(COOKIES_PATH):
         with open(COOKIES_PATH, 'w') as f:
             json.dump({}, f)
-    with open(COOKIES_PATH, 'r') as f:
-        cookies = json.load(f)
+    
+    # read cookies from json file
+    cookies = {}
+    if not args.no_cookie:
+        with open(COOKIES_PATH, 'r') as f:
+            cookies = json.load(f)
 
     magnets = []
     torrents_all = []
@@ -276,7 +283,7 @@ def main():
         r, html, cookies = get_page_html(
             target_url.format(domain=args.domain, search=args.search, order=args.order, category=cat_code_dict[args.category], page=i,
                               by='DESC' if args.descending else 'ASC'),
-                              cookies=cookies)
+            cookies=cookies)
 
         with open(os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + f'_torrents_{i}.html'), 'w', encoding='utf8') as f:
             f.write(r.text)
