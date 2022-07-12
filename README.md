@@ -27,9 +27,9 @@ From source (latest)
 Both aliases are valid for the same command: `rarbg` or `rarbgcli`
 
     usage:
-        [-h] [--category {movies,xxx,music,tvshows,software,games,nonxxx,}] [--limit LIMIT] [--domain DOMAIN]
-        [--order {data,filename,leechers,seeders,size,}] [--descending] [--interactive] [--magnet]
-        [--sort {title,date,size,seeders,leechers,}] [--cache] [--no_cookie]
+        [-h] [--category {movies,xxx,music,tvshows,software,games,nonxxx,}] [--limit LIMIT] [--domain DOMAIN] 
+        [--order {data,filename,leechers,seeders,size,}] [--descending]   
+        [--interactive {true,false}] [--magnet] [--sort {title,date,size,seeders,leechers,}] [--cache] [--no_cookie]
         search
 
     positional arguments:
@@ -41,16 +41,20 @@ Both aliases are valid for the same command: `rarbg` or `rarbgcli`
     --limit LIMIT, -l LIMIT
                             Limit number of torrent magnet links (default: inf)
     --domain DOMAIN, -d DOMAIN
-                            Domain to search, you could put an alternative mirror domain here (default: rarbgunblocked.org)
+                            Domain to search, you could put an alternative mirror domain here (default:       
+                            rarbgunblocked.org)
     --order {data,filename,leechers,seeders,size,}, -r {data,filename,leechers,seeders,size,}
-                            Order results (before query) by this key. empty string means no sort (default: )
+                            Order results (before query) by this key. empty string means no sort (default: )  
     --descending          Order in descending order (only available for --order) (default: False)
-    --interactive, -i     Interactive mode, show menu of torrents (default: False)
+    --interactive {true,false}, -i {true,false}
+                            Interactive mode, show menu of torrents (default: None)
     --magnet, -m          Output magnet links (default: False)
     --sort {title,date,size,seeders,leechers,}, -s {title,date,size,seeders,leechers,}
-                            Sort results (after scraping) by this key. empty string means no sort (default: )
+                            Sort results (after scraping) by this key. empty string means no sort (default:   
+                            )
     --cache               Use cached results from previous searches (default: False)
-    --no_cookie, -nk      Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA) (default: False)
+    --no_cookie, -nk      Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)  
+                            (default: False)
 
 Example
 

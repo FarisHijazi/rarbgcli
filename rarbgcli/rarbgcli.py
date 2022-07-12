@@ -1,8 +1,6 @@
 """
-rarbccli: RARBG command line interface for scraping the rarbg.to torrent search engine.
-https://github.com/FarisHijazi/rarbgcli
-
-Outputs a torrent information as JSON from a rarbg search.
+rarbg, rarbccli - RARBG command line interface for scraping the rarbg.to torrent search engine
+                  Outputs a torrent information as JSON from a rarbg search.
 
 Example usage:
 
@@ -11,6 +9,8 @@ Example usage:
 The program is pipe-friendly, so you could pipe it to your favorite torrent client.
 
     $ rarbgcli "the stranger things 3" --category movies --limit 10 --magnet | xargs qbittorrent
+
+https://github.com/FarisHijazi/rarbgcli
 
 """
 
@@ -126,7 +126,7 @@ def deal_with_threat_defence_manual(threat_defence_url):
     # if sys.stdout.isatty():
     #     real_print("Please avoid using a pipe for CAPTCHA setup, you may need to rerun the command",
     #     file=sys.stderr, flush=True)
-    open_program(threat_defence_url)
+
     real_print(f'''
     rarbg CAPTCHA must be solved, please follow the instructions bellow (only needs to be done once in a while):
 
@@ -208,14 +208,6 @@ def dict_to_fname(d):
     return filename
 
 
-def open_program(program):
-    if sys.platform == 'win32':
-        return os.startfile(program)
-    else:
-        opener = 'open' if sys.platform == 'darwin' else 'xdg-open'
-        return subprocess.call([opener, program])
-
-
 def get_user_input_interactive(torrent_dicts):
     header = ' '.join(["SN".ljust(4), "TORRENT NAME".ljust(80), "SEEDS".ljust(6), "LEECHES".ljust(6), "SIZE".center(12), "UPLOADER"])
     choices = []
@@ -263,7 +255,7 @@ def get_args():
     parser.add_argument('--domain', '-d', default='rarbgunblocked.org', help='Domain to search, you could put an alternative mirror domain here')
     parser.add_argument('--order', '-r', choices=orderkeys, default='', help='Order results (before query) by this key. empty string means no sort')
     parser.add_argument('--descending', action='store_true', help='Order in descending order (only available for --order)')
-    parser.add_argument('--interactive', '-i', action='store_true', help='Interactive mode, show menu of torrents')
+    parser.add_argument('--interactive', '-i', choices=['true', 'false'], default=None, help='Interactive mode, show menu of torrents')
 
     parser.add_argument('--magnet', '-m', action='store_true', help='Output magnet links')
     parser.add_argument('--sort', '-s', choices=sortkeys, default='', help='Sort results (after scraping) by this key. empty string means no sort')
@@ -272,6 +264,14 @@ def get_args():
     parser.add_argument('--no_cookie', '-nk', action='store_true',
                         help='Don\'t use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)')
     args = parser.parse_args()
+
+    if args.interactive == 'true':
+        args.interactive = True
+    elif args.interactive == 'false':
+        args.interactive = False
+    else:
+        args.interactive = sys.stdout.isatty() # automatically decide based on if tty
+
     if args.interactive and not sys.stdout.isatty():
         print('--interactive mode requires a TTY (cannot be piped)', file=sys.stderr)
         exit(1)
