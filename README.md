@@ -22,22 +22,31 @@ From source (latest)
 
 ## Usage
 
+    usage:
+        [-h] [--category {movies,xxx,music,tvshows,software,games,nonxxx,}] [--limit LIMIT] [--domain DOMAIN]
+        [--order {data,filename,leechers,seeders,size,}] [--descending] [--interactive] [--magnet]
+        [--sort {title,date,size,seeders,leechers,}] [--cache] [--no_cookie]
+        search
+
     positional arguments:
-    search                search term
+    search                Search term
 
     optional arguments:
     -h, --help            show this help message and exit
     --category {movies,xxx,music,tvshows,software,games,nonxxx,}, -c {movies,xxx,music,tvshows,software,games,nonxxx,}
     --limit LIMIT, -l LIMIT
-                            limit number of torrent magnet links (default: inf)
+                            Limit number of torrent magnet links (default: inf)
     --domain DOMAIN, -d DOMAIN
-                            domain to search, you could put an alternative mirror domain here (default: rarbgunblocked.org)
-    --magnet, -m          output magnet links (default: False)
-    --cache               use cached results from previous searches (default: False)
+                            Domain to search, you could put an alternative mirror domain here (default: rarbgunblocked.org)
     --order {data,filename,leechers,seeders,size,}, -r {data,filename,leechers,seeders,size,}
-                            order results (before query) by this key. empty string means no sort (default: )
+                            Order results (before query) by this key. empty string means no sort (default: )
+    --descending          Order in descending order (only available for --order) (default: False)
+    --interactive, -i     Interactive mode, show menu of torrents (default: False)
+    --magnet, -m          Output magnet links (default: False)
     --sort {title,date,size,seeders,leechers,}, -s {title,date,size,seeders,leechers,}
-                            sort results (after scraping) by this key. empty string means no sort (default: )
+                            Sort results (after scraping) by this key. empty string means no sort (default: )
+    --cache               Use cached results from previous searches (default: False)
+    --no_cookie, -nk      Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA) (default: False)
 
 Example
 
