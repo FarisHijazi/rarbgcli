@@ -4,3 +4,4 @@ pytesseract==0.3.9
 requests==2.27.1
 selenium==3.141.0
 wget==3.2
+urllib==1.26.4

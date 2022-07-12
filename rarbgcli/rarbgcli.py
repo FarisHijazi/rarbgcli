@@ -1,18 +1,16 @@
 #!/home/e/anaconda3/bin/python
 """
 rarbccli: RARBG command line interface for scraping the rarbg.to torrent search engine.
+https://github.com/FarisHijazi/rarbgcli
 
-prints a list of magnets from a rarbg search.
+Outputs a torrent information as JSON from a rarbg search.
 
-example usage:
+Example usage:
 
-    $ rarbgcli "the stranger things 3" --category movies --limit 10 --magnets
+    $ rarbgcli "the stranger things 3" --category movies --limit 10
 
-The program is pipe-friendly, so you could use this tool in conjunction with the [jq](https://stedolan.github.io/jq/) command to filter the JSON output, and then pipe it to your favorite torrent client.
+The program is pipe-friendly, so you could pipe it to your favorite torrent client.
 
-The --magnet option is a convenience option instead of filtering it every time with `jq`, the bellow 2 lines are equivalent:
-
-    $ rarbgcli "the stranger things 3" --category movies --limit 10 | jq .[].magnet | xargs qbittorrent
     $ rarbgcli "the stranger things 3" --category movies --limit 10 --magnet | xargs qbittorrent
 
 """
@@ -25,6 +23,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+import urllib
 
 import requests
 from bs4 import BeautifulSoup
@@ -171,7 +170,7 @@ def extract_magnet(anchor):
     trackers = 'http%3A%2F%2Ftracker.trackerfix.com%3A80%2Fannounce&tr=udp%3A%2F%2F9.rarbg.me%3A2710&tr=udp%3A%2F%2F9.rarbg.to%3A2710';
     try:
         hash = re.search(regex, str(anchor))[1]
-        title = anchor.get('title')
+        title = urllib.parse.quote(anchor.get('title'))
         return f'magnet:?xt=urn:btih:{hash}&dn={title}&tr={trackers}'
     except Exception as e:
         return ''

@@ -1,8 +1,8 @@
-# RARBG-CLI `rarbgcli`
+# [RARBG-CLI `rarbgcli`](https://github.com/FarisHijazi/rarbgcli)
 
 RARBG command line interface for scraping the [rarbg.to](rarbg.to) torrent search engine.
 
-Outputs list of results containing magnet links from a [rarbg.to](rarbg.to) search.
+Outputs a torrent information as JSON from a [rarbg.to](rarbg.to) search.
 
 ![usage](assets/usage.gif)
 
@@ -80,3 +80,4 @@ In the case that it doesn't, see the instructions at the bottom to manually solv
 ### To-do list
 
 - [ ] add interactive mode
+- [ ] add github workflow
