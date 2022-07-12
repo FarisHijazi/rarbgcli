@@ -87,11 +87,13 @@ def solveCaptcha(threat_defence_url):
     options.add_argument('--no-sandbox')
     options.add_argument("--headless")
     options.add_argument("--log-level=3")
+    options.add_argument("--disable-logging");
+    options.add_argument("--output=" + ('NUL' if sys.platform == 'win32' else '/dev/null'));
 
     driver = webdriver.Chrome(
         chrome_options=options,
         # chrome_profile=FFprofile,
-        # service_log_path=StringIO
+        service_log_path=('NUL' if sys.platform == 'win32' else '/dev/null')
     )
     driver.implicitly_wait(10)
     driver.get(threat_defence_url)
@@ -214,17 +216,17 @@ def open_program(program):
         return subprocess.call([opener, program])
 
 
-def get_user_input_interactive(lista2s):
+def get_user_input_interactive(torrent_dicts):
     header = ' '.join(["SN".ljust(4), "TORRENT NAME".ljust(80), "SEEDS".ljust(6), "LEECHES".ljust(6), "SIZE".center(12), "UPLOADER"])
     choices = []
-    for i in range(len(lista2s)):
-        torrent_name = lista2s[i].contents[1].contents[0].contents[0][:75]
-        torrent_size = lista2s[i].contents[3].contents[0]
-        torrent_seeds = lista2s[i].contents[4].contents[0].contents[0]
-        torrent_leeches = lista2s[i].contents[5].contents[0]
-        torrent_uploader = lista2s[i].contents[7].contents[0]
+    for i in range(len(torrent_dicts)):
+        torrent_name = str(torrent_dicts[i]['title'])
+        torrent_size = str(torrent_dicts[i]['size'])
+        torrent_seeds = str(torrent_dicts[i]['seeders'])
+        torrent_leeches = str(torrent_dicts[i]['leechers'])
+        torrent_uploader = str(torrent_dicts[i]['uploader'])
         choices.append({
-            'value': int(i + 1),
+            'value': int(i),
             'name': ' '.join([str(i + 1).ljust(4), torrent_name.ljust(80), torrent_seeds.ljust(6), torrent_leeches.ljust(6), torrent_size.center(12),
                               torrent_uploader])
         })
@@ -281,12 +283,21 @@ def get_args():
         exit(1)
     return args
 
+
 def main():
     def print_results(dicts):
         if args.sort:
             dicts.sort(key=lambda x: x[args.sort], reverse=True)
         if args.limit < float('inf'):
             dicts = dicts[:int(args.limit)]
+
+        for d in dicts:
+            if not d['magnet']:
+                print('fetching magnet link for', d['title'])
+                html_subpage = requests.get(d['href'], cookies=cookies).text.encode('utf-8')
+                parsed_html_subpage = BeautifulSoup(html_subpage, 'html.parser')
+                d['magnet'] = parsed_html_subpage.select_one('a[href^="magnet:"]').get('href')
+                d['torrent_file'] = parsed_html_subpage.select_one('a[href^="/download.php"]').get('href')
 
         if args.magnet:
             real_print('\n'.join([t['magnet'] for t in dicts]))
@@ -331,7 +342,6 @@ def main():
         with open(os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + f'_torrents_{i}.html'), 'w', encoding='utf8') as f:
             f.write(r.text)
         parsed_html = BeautifulSoup(html, 'html.parser')
-        lista2s = parsed_html.select('.lista2')
         torrents = parsed_html.select('tr.lista2 a[href^="/torrent/"][title]')
         torrents = [torrent for torrent in torrents if torrent not in torrents_all]
 
@@ -344,7 +354,7 @@ def main():
             break
         magnets += list(map(extract_magnet, torrents))
         # removed torrents and magnet links that have empty magnets, but maintained order
-        torrents, magnets = zip(*[[a, m] for (a, m) in zip(torrents, magnets) if m])
+        torrents, magnets = zip(*[[a, m] for (a, m) in zip(torrents, magnets)])
         torrents, magnets = list(torrents), list(magnets)
 
         dicts_current = [{
@@ -355,52 +365,46 @@ def main():
             'size': parse_size(torrent.findParent('tr').select_one('td:nth-child(4)').contents[0]),
             'seeders': int(torrent.findParent('tr').select_one('td:nth-child(5) > font').contents[0]),
             'leechers': int(torrent.findParent('tr').select_one('td:nth-child(6)').contents[0]),
+            'uploader': str(torrent.findParent('tr').select_one('td:nth-child(8)').contents[0]),
             'magnet': magnet,
         } for (torrent, magnet) in zip(torrents, magnets)]
+
         dicts_all += dicts_current
         torrents_all += torrents
 
         if args.interactive:
             while True:
                 os.system('cls||clear')
-                user_input = get_user_input_interactive(lista2s)
+                user_input = get_user_input_interactive(dicts_current)
                 if not user_input:  # next page
-                    print("\n\nNo item selected, use <space> to select\n\n")
+                    print("\nNo item selected\n")
                     pass
                 else:  # indexes
-                    input_indexes = [int(x) - 1 for x in user_input]
+                    input_indexes = [int(x) for x in user_input]
                     # save history to json file
                     with open(out_history_path, 'w', encoding='utf8') as f:
                         json.dump(dicts_all, f, indent=4)
                     print_results([dicts_current[idx] for idx in input_indexes])
 
-                user_input = input("[ENTER]: continue to the next page, [b]: go (b)ack to results, [q]: to (q)uit, or enter new search term: ")
+                user_input = input("[ENTER]: continue to the next page, [b]: go (b)ack to results, [q]: to (q)uit: ")
                 if user_input.lower() == 'b':
                     continue
                 elif user_input.lower() == 'q':
                     exit(0)
                 elif user_input == '':
                     break
-                else:
-                    args.search = user_input
-                    magnets = []
-                    torrents_all = []
-                    dicts_all = []
-                    i = 1
-                    break
 
         # save history to json file
         with open(out_history_path, 'w', encoding='utf8') as f:
             json.dump(dicts_all, f, indent=4)
 
-        if not args.interactive and len(list(filter(None, magnets))) >= args.limit:
+        if len(list(filter(None, magnets))) >= args.limit:
             print(f'reached limit {args.limit}, stopping')
             break
         i += 1
 
     if not args.interactive:
         print_results(dicts_all)
-
 
 
 if __name__ == '__main__':
