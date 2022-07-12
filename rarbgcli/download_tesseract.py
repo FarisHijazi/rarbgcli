@@ -3,8 +3,6 @@ import wget
 import zipfile
 import os
 from sys import platform
-from pathlib import Path
-platform_ = platform
 
 #TODO: check existing work with requests_html
 

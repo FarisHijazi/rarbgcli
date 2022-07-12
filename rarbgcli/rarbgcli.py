@@ -19,7 +19,6 @@ import datetime
 import json
 import os
 import re
-import subprocess
 import sys
 import time
 from requests.utils import quote
@@ -90,11 +89,15 @@ def solveCaptcha(threat_defence_url):
     options.add_argument("--disable-logging");
     options.add_argument("--output=" + ('NUL' if sys.platform == 'win32' else '/dev/null'));
 
+    import get_chrome_driver
+    chromedriver_path = get_chrome_driver.main(PROGRAM_DIRECTORY)
     driver = webdriver.Chrome(
+        chromedriver_path,
         chrome_options=options,
-        # chrome_profile=FFprofile,
         service_log_path=('NUL' if sys.platform == 'win32' else '/dev/null')
     )
+    print('successfully loaded chrome driver')
+
     driver.implicitly_wait(10)
     driver.get(threat_defence_url)
 

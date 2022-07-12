@@ -4,9 +4,10 @@ import zipfile
 import os
 from sys import platform
 from pathlib import Path
+
+global platform_
 platform_ = platform
 
-#TODO: check existing work with requests_html
 
 def main(chdir='.'):
     os.chdir(chdir)
@@ -21,7 +22,7 @@ def main(chdir='.'):
     response = requests.get(url)
     version_number = response.text
 
-
+    global platform_
     if platform_ == 'darwin':
         import cpuinfo
         # Just get the manufacturer of the processors
