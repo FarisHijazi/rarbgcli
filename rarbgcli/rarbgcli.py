@@ -288,6 +288,19 @@ def get_args():
 
 
 def main():
+    args = get_args()
+
+    # read cookies from json file
+    cookies = {}
+    # make empty cookie if cookie doesn't already exist
+    if not os.path.exists(COOKIES_PATH):
+        with open(COOKIES_PATH, 'w') as f:
+            json.dump({}, f)
+
+    if not args.no_cookie:
+        with open(COOKIES_PATH, 'r') as f:
+            cookies = json.load(f)
+
     def print_results(dicts):
         if args.sort:
             dicts.sort(key=lambda x: x[args.sort], reverse=True)
@@ -307,8 +320,7 @@ def main():
         else:
             real_print(json.dumps(dicts, indent=4))
 
-    args = get_args()
-
+    # == dealing with cache and history ==
     out_history_fname = dict_to_fname(args)
     os.makedirs(os.path.join(PROGRAM_DIRECTORY, '.history'), exist_ok=True)
     out_history_path = os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + '.json')
@@ -319,17 +331,6 @@ def main():
         print('Using cached results from', out_history_path)
         print_results(history)
         sys.exit(0)
-
-    # make empty cookie if cookie doesn't already exist
-    if not os.path.exists(COOKIES_PATH):
-        with open(COOKIES_PATH, 'w') as f:
-            json.dump({}, f)
-
-    # read cookies from json file
-    cookies = {}
-    if not args.no_cookie:
-        with open(COOKIES_PATH, 'r') as f:
-            cookies = json.load(f)
 
     magnets = []
     torrents_all = []
