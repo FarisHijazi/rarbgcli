@@ -4,10 +4,6 @@ rarbg, rarbccli - RARBG command line interface for scraping the rarbg.to torrent
 
 Example usage:
 
-    $ rarbgcli "the stranger things 3" --category movies --limit 10
-
-The program is pipe-friendly, so you could pipe it to your favorite torrent client.
-
     $ rarbgcli "the stranger things 3" --category movies --limit 10 --magnet | xargs qbittorrent
 
 https://github.com/FarisHijazi/rarbgcli
@@ -44,6 +40,11 @@ CATEGORY2CODE = {
     'nonxxx': '2;14;15;16;17;21;22;42;18;19;41;27;28;29;30;31;32;40;23;24;25;26;33;34;43;44;45;46;47;48;49;50;51;52;54'.split(';'),
     '': '',
 }
+CODE2CATEGORY = {}
+for category, codes in CATEGORY2CODE.items():
+    if category in ['movies','xxx','music','tvshows','software']:
+        for code in codes:
+            CODE2CATEGORY[code] = category
 
 
 ## Captcha solving taken from https://github.com/confident-hate/seedr-cli
@@ -144,7 +145,7 @@ def deal_with_threat_defence_manual(threat_defence_url):
 
     >>>
     ''', file=sys.stderr)
-    cookies = input().strip()
+    cookies = input().strip().strip("'").strip('"')
 
     cookies = dict([x.split('=') for x in cookies.split('; ') if len(x.split('=')) == 2])
 
@@ -206,7 +207,7 @@ def dict_to_fname(d):
     del args_dict['sort']
     del args_dict['magnet']
     del args_dict['domain']
-    del args_dict['cache']
+    del args_dict['no_cache']
     filename = json.dumps(args_dict, indent=None, separators=(',', '='), ensure_ascii=False)[1:-1].replace('"', '')
     return filename
 
@@ -263,7 +264,7 @@ def get_args():
     parser.add_argument('--magnet', '-m', action='store_true', help='Output magnet links')
     parser.add_argument('--sort', '-s', choices=sortkeys, default='', help='Sort results (after scraping) by this key. empty string means no sort')
 
-    parser.add_argument('--cache', action='store_true', help='Use cached results from previous searches')
+    parser.add_argument('--no_cache', '-nc', action='store_true', help='Don\'t use cached results from previous searches')
     parser.add_argument('--no_cookie', '-nk', action='store_true',
                         help='Don\'t use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)')
     args = parser.parse_args()
@@ -287,8 +288,25 @@ def get_args():
     return args
 
 
-def main():
+def cli():
     args = get_args()
+    return main(**vars(args), out_history_fname=dict_to_fname(args))
+
+
+def main(
+    search,
+    category='',
+    limit=float('inf'),
+    domain='rarbgunblocked.org',
+    order='',
+    descending=False,
+    interactive=False,
+    magnet=False,
+    sort='',
+    no_cache=False,
+    no_cookie=False,
+    out_history_fname='untitled',
+    ):
 
     # read cookies from json file
     cookies = {}
@@ -297,35 +315,41 @@ def main():
         with open(COOKIES_PATH, 'w') as f:
             json.dump({}, f)
 
-    if not args.no_cookie:
+    if not no_cookie:
         with open(COOKIES_PATH, 'r') as f:
             cookies = json.load(f)
 
     def print_results(dicts):
-        if args.sort:
-            dicts.sort(key=lambda x: x[args.sort], reverse=True)
-        if args.limit < float('inf'):
-            dicts = dicts[:int(args.limit)]
+        if sort:
+            dicts.sort(key=lambda x: x[sort], reverse=True)
+        if limit < float('inf'):
+            dicts = dicts[:int(limit)]
 
         for d in dicts:
             if not d['magnet']:
                 print('fetching magnet link for', d['title'])
-                html_subpage = requests.get(d['href'], cookies=cookies).text.encode('utf-8')
-                parsed_html_subpage = BeautifulSoup(html_subpage, 'html.parser')
-                d['magnet'] = parsed_html_subpage.select_one('a[href^="magnet:"]').get('href')
-                d['torrent_file'] = parsed_html_subpage.select_one('a[href^="/download.php"]').get('href')
+                try:
+                    html_subpage = requests.get(d['href'], cookies=cookies).text.encode('utf-8')
+                    parsed_html_subpage = BeautifulSoup(html_subpage, 'html.parser')
+                    d['magnet'] = parsed_html_subpage.select_one('a[href^="magnet:"]').get('href')
+                    d['torrent_file'] = parsed_html_subpage.select_one('a[href^="/download.php"]').get('href')
+                except Exception as e:
+                    print('Error:', e)
 
-        if args.magnet:
+        # save history to json file
+        with open(out_history_path, 'w', encoding='utf8') as f:
+            json.dump(dicts, f, indent=4)
+
+        if magnet:
             real_print('\n'.join([t['magnet'] for t in dicts]))
         else:
             real_print(json.dumps(dicts, indent=4))
 
     # == dealing with cache and history ==
-    out_history_fname = dict_to_fname(args)
     os.makedirs(os.path.join(PROGRAM_DIRECTORY, '.history'), exist_ok=True)
     out_history_path = os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + '.json')
 
-    if args.cache and os.path.exists(out_history_path):
+    if not no_cache and os.path.exists(out_history_path):
         with open(out_history_path, 'r') as f:
             history = json.load(f)
         print('Using cached results from', out_history_path)
@@ -339,8 +363,8 @@ def main():
     while True:  # for all pages
         target_url = 'https://{domain}/torrents.php?search={search}&order={order}&category={category}&page={page}&by={by}'
         r, html, cookies = get_page_html(target_url.format(
-            domain=args.domain, search=args.search, order=args.order, category=CATEGORY2CODE[args.category], page=i,
-            by='DESC' if args.descending else 'ASC'
+            domain=domain, search=search, order=order, category=';'.join(CATEGORY2CODE[category]), page=i,
+            by='DESC' if descending else 'ASC'
         ), cookies=cookies)
 
         with open(os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + f'_torrents_{i}.html'), 'w', encoding='utf8') as f:
@@ -363,9 +387,10 @@ def main():
 
         dicts_current = [{
             'title': torrent.get("title"),
-            'href': f"https://{args.domain}{torrent.get('href')}",
+            'href': f"https://{domain}{torrent.get('href')}",
             'date': datetime.datetime.strptime(str(torrent.findParent('tr').select_one('td:nth-child(3)').contents[0]),
                                                '%Y-%m-%d %H:%M:%S').timestamp(),
+            'category': CODE2CATEGORY.get(torrent.findParent('tr').select_one('td:nth-child(1) img').get('src').split('/')[-1].replace('cat_new', '').replace('.gif', ''), 'UNKOWN'),
             'size': parse_size(torrent.findParent('tr').select_one('td:nth-child(4)').contents[0]),
             'seeders': int(torrent.findParent('tr').select_one('td:nth-child(5) > font').contents[0]),
             'leechers': int(torrent.findParent('tr').select_one('td:nth-child(6)').contents[0]),
@@ -376,7 +401,7 @@ def main():
         dicts_all += dicts_current
         torrents_all += torrents
 
-        if args.interactive:
+        if interactive:
             while True:
                 os.system('cls||clear')
                 user_input = get_user_input_interactive(dicts_current)
@@ -398,18 +423,14 @@ def main():
                 elif user_input == '':
                     break
 
-        # save history to json file
-        with open(out_history_path, 'w', encoding='utf8') as f:
-            json.dump(dicts_all, f, indent=4)
-
-        if len(list(filter(None, magnets))) >= args.limit:
-            print(f'reached limit {args.limit}, stopping')
+        if len(list(filter(None, magnets))) >= limit:
+            print(f'reached limit {limit}, stopping')
             break
         i += 1
 
-    if not args.interactive:
+    if not interactive:
         print_results(dicts_all)
 
 
 if __name__ == '__main__':
-    main()
+    exit(cli())

@@ -52,7 +52,7 @@ Both aliases are valid for the same command: `rarbg` or `rarbgcli`
     --sort {title,date,size,seeders,leechers,}, -s {title,date,size,seeders,leechers,}
                             Sort results (after scraping) by this key. empty string means no sort (default:   
                             )
-    --cache               Use cached results from previous searches (default: False)
+    --no_cache, -nc       Don't use cached results from previous searches (default: False)
     --no_cookie, -nk      Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)  
                             (default: False)
 
