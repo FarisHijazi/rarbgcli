@@ -6,3 +6,4 @@ questionary==1.10.0
 requests==2.27.1
 selenium==3.141.0
 wget==3.2
+webdriver-manager==3.8.3

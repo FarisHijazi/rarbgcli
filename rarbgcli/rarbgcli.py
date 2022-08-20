@@ -56,6 +56,8 @@ def solveCaptcha(threat_defence_url):
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
+    from webdriver_manager.chrome import ChromeDriverManager
+
     import pytesseract
     from PIL import Image
     from io import BytesIO
@@ -90,10 +92,10 @@ def solveCaptcha(threat_defence_url):
     options.add_argument("--disable-logging");
     options.add_argument("--output=" + ('NUL' if sys.platform == 'win32' else '/dev/null'));
 
-    import get_chrome_driver
-    chromedriver_path = get_chrome_driver.main(PROGRAM_DIRECTORY)
+    # import get_chrome_driver  # no longer needed since ChromeDriverManager exists
+    # chromedriver_path = get_chrome_driver.main(PROGRAM_DIRECTORY)
     driver = webdriver.Chrome(
-        chromedriver_path,
+        ChromeDriverManager().install(),
         chrome_options=options,
         service_log_path=('NUL' if sys.platform == 'win32' else '/dev/null')
     )
@@ -127,10 +129,6 @@ def solveCaptcha(threat_defence_url):
 
 
 def deal_with_threat_defence_manual(threat_defence_url):
-    # if sys.stdout.isatty():
-    #     real_print("Please avoid using a pipe for CAPTCHA setup, you may need to rerun the command",
-    #     file=sys.stderr, flush=True)
-
     real_print(f'''
     rarbg CAPTCHA must be solved, please follow the instructions bellow (only needs to be done once in a while):
 
@@ -156,7 +154,10 @@ def deal_with_threat_defence(threat_defence_url):
     try:
         return solveCaptcha(threat_defence_url)
     except Exception as e:
-        print('failed to solve captcha, please solve manually', e)
+        if not sys.stdout.isatty():
+            raise Exception("Failed to solve captcha automatically, please rerun this command (without a pipe `|`) and solve it manually. This process only needs to be done once") from e
+
+        print('Failed to solve captcha, please solve manually', e)
         return deal_with_threat_defence_manual(threat_defence_url)
 
 
