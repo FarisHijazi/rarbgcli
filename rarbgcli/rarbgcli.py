@@ -260,7 +260,7 @@ def get_args():
     parser.add_argument('--domain', '-d', default='rarbgunblocked.org', help='Domain to search, you could put an alternative mirror domain here')
     parser.add_argument('--order', '-r', choices=orderkeys, default='', help='Order results (before query) by this key. empty string means no sort')
     parser.add_argument('--descending', action='store_true', help='Order in descending order (only available for --order)')
-    parser.add_argument('--interactive', '-i', choices=['true', 'false'], default=None, help='Interactive mode, show menu of torrents')
+    parser.add_argument('--interactive', '-i', action='store_true', default=None, help='Force interactive mode, show interctive menu of torrents')
 
     parser.add_argument('--magnet', '-m', action='store_true', help='Output magnet links')
     parser.add_argument('--sort', '-s', choices=sortkeys, default='', help='Sort results (after scraping) by this key. empty string means no sort')
@@ -270,16 +270,9 @@ def get_args():
                         help='Don\'t use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)')
     args = parser.parse_args()
 
-    if args.interactive == 'true':
-        args.interactive = True
-    elif args.interactive == 'false':
-        args.interactive = False
-    else:
+    if args.interactive is None:
         args.interactive = sys.stdout.isatty() # automatically decide based on if tty
 
-    if args.interactive and not sys.stdout.isatty():
-        print('--interactive mode requires a TTY (cannot be piped)', file=sys.stderr)
-        exit(1)
     if not args.limit >= 1:
         print('--limit must be greater than 1', file=sys.stderr)
         exit(1)
@@ -389,8 +382,7 @@ def main(
         dicts_current = [{
             'title': torrent.get("title"),
             'href': f"https://{domain}{torrent.get('href')}",
-            'date': datetime.datetime.strptime(str(torrent.findParent('tr').select_one('td:nth-child(3)').contents[0]),
-                                               '%Y-%m-%d %H:%M:%S').timestamp(),
+            'date': datetime.datetime.strptime(str(torrent.findParent('tr').select_one('td:nth-child(3)').contents[0]), '%Y-%m-%d %H:%M:%S').timestamp(),
             'category': CODE2CATEGORY.get(torrent.findParent('tr').select_one('td:nth-child(1) img').get('src').split('/')[-1].replace('cat_new', '').replace('.gif', ''), 'UNKOWN'),
             'size': parse_size(torrent.findParent('tr').select_one('td:nth-child(4)').contents[0]),
             'seeders': int(torrent.findParent('tr').select_one('td:nth-child(5) > font').contents[0]),
