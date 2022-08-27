@@ -8,6 +8,7 @@ Example usage:
 
 https://github.com/FarisHijazi/rarbgcli
 
+TODO: turn this lib into an API lib (keep the CLI as a bonus)
 """
 
 import argparse
@@ -15,20 +16,28 @@ import datetime
 import json
 import os
 import re
+import requests
 import sys
 import time
-from requests.utils import quote
-from functools import partial
-from pathlib import Path
-from sys import platform
-
-import requests
+import time
+import wget
+import wget
+import zipfile
 from bs4 import BeautifulSoup
+from functools import partial
+from http.cookies import SimpleCookie
+from pathlib import Path
+from requests.utils import quote
+from sys import platform, platform
 
-PROGRAM_DIRECTORY = Path(__file__).parent.resolve()
+
 real_print = print
 print = print if sys.stdout.isatty() else partial(print, file=sys.stderr)
-COOKIES_PATH = os.path.join(PROGRAM_DIRECTORY, '.cookies.json')
+
+HOME_DIRECTORY = os.environ.get('RARBGCLI_HOME', str(Path.home()))
+PROGRAM_HOME = os.path.join(HOME_DIRECTORY, '.rarbgcli')
+os.makedirs(PROGRAM_HOME, exist_ok=True)
+COOKIES_PATH = os.path.join(PROGRAM_HOME, 'cookies.json')
 
 CATEGORY2CODE = {
     'movies': '48;17;44;45;47;50;51;52;42;46'.split(';'),
@@ -93,7 +102,7 @@ def solveCaptcha(threat_defence_url):
     options.add_argument("--output=" + ('NUL' if sys.platform == 'win32' else '/dev/null'));
 
     # import get_chrome_driver  # no longer needed since ChromeDriverManager exists
-    # chromedriver_path = get_chrome_driver.main(PROGRAM_DIRECTORY)
+    # chromedriver_path = get_chrome_driver.main(PROGRAM_HOME)
     driver = webdriver.Chrome(
         ChromeDriverManager().install(),
         chrome_options=options,
@@ -105,14 +114,13 @@ def solveCaptcha(threat_defence_url):
     driver.get(threat_defence_url)
 
     if platform == 'win32':
-        pytesseract.pytesseract.tesseract_cmd = os.path.join(PROGRAM_DIRECTORY, 'Tesseract-OCR', 'tesseract')
+        pytesseract.pytesseract.tesseract_cmd = os.path.join(PROGRAM_HOME, 'Tesseract-OCR', 'tesseract')
 
     try:
         solution = img2txt()
     except pytesseract.TesseractNotFoundError:
         print("Tesseract not found. Downloading tesseract ...")
-        import download_tesseract
-        download_tesseract.main(PROGRAM_DIRECTORY)
+        download_tesseract(PROGRAM_HOME)
         solution = img2txt()
 
     text_field = driver.find_element_by_id('solve_string')
@@ -126,6 +134,34 @@ def solveCaptcha(threat_defence_url):
     cookies = {c['name']: c['value'] for c in (driver.get_cookies())}
     driver.close()
     return cookies
+
+
+def download_tesseract(chdir='.'):
+    os.chdir(chdir)
+
+    # download for each platform if statement
+    if platform == 'win32':
+        tesseract_zip = wget.download("https://github.com/FarisHijazi/rarbgcli/releases/download/v0.0.7/Tesseract-OCR.zip", 'Tesseract-OCR.zip')
+        # extract the zip file
+        with zipfile.ZipFile(tesseract_zip, 'r') as zip_ref:
+            zip_ref.extractall() # you can specify the destination folder path here
+        # delete the zip file downloaded above
+        os.remove(tesseract_zip)
+    elif platform in ['linux', 'linux2']:
+        os.system("sudo apt-get install tesseract-ocr")
+    else:
+        raise Exception("Unsupported platform")
+
+
+def cookies_txt_to_dict(cookies_txt: str) -> dict:
+    # SimpleCookie.load = lambda self, data: self.__init__(data.split(';'))
+    cookie = SimpleCookie()
+    cookie.load(cookies_txt)
+    return {k: v.value for k, v in cookie.items()}
+
+
+def cookies_dict_to_txt(cookies_dict: dict) -> str:
+    return '; '.join(f'{k}={v}' for k, v in cookies_dict.items())
 
 
 def deal_with_threat_defence_manual(threat_defence_url):
@@ -144,8 +180,7 @@ def deal_with_threat_defence_manual(threat_defence_url):
     >>>
     ''', file=sys.stderr)
     cookies = input().strip().strip("'").strip('"')
-
-    cookies = dict([x.split('=') for x in cookies.split('; ') if len(x.split('=')) == 2])
+    cookies = cookies_txt_to_dict(cookies)
 
     return cookies
 
@@ -180,6 +215,24 @@ def get_page_html(target_url, cookies):
     return r, data, cookies
 
 
+def extract_torrent_file(anchor, domain='rarbgunblocked.org'):
+    return "https://" + domain + anchor.get("href").replace('torrent/', 'download.php?id=') + '&f=' + quote(anchor.contents[0] + '-[rarbg.to].torrent') + '&tpageurl=' + quote(anchor.get("href").strip());
+
+
+def open_url(url):
+    if platform == 'win32':
+        os.startfile(url)
+    elif platform in ['linux', 'linux2']:
+        os.system('xdg-open ' + url)
+    else: # if mac os
+        os.system('open ' + url)
+
+
+def download_file(url, out, cookies=None):
+    open_url(url)
+    time.sleep(1)
+
+
 def extract_magnet(anchor):
     # real:
     #     https://rarbgaccess.org/download.php?id=...&h=120&f=...-[rarbg.to].torrent
@@ -204,13 +257,20 @@ def parse_size(size):
 
 def dict_to_fname(d):
     # copy and sanitize
-    args_dict = {k: str(v).replace('"', '').replace(',', '') for k, v in vars(d).items()}
-    del args_dict['sort']
-    del args_dict['magnet']
-    del args_dict['domain']
-    del args_dict['no_cache']
+    white_list = {'limit', 'category', 'order', 'search', 'descending'}
+    args_dict = {k: str(v).replace('"', '').replace(',', '') for k, v in sorted(vars(d).items()) if k in white_list}
     filename = json.dumps(args_dict, indent=None, separators=(',', '='), ensure_ascii=False)[1:-1].replace('"', '')
     return filename
+
+def unique(dicts):
+    seen = set()
+    deduped = []
+    for d in dicts:
+        t = tuple(d.items())
+        if t not in seen:
+            seen.add(t)
+            deduped.append(d)
+    return deduped
 
 
 def get_user_input_interactive(torrent_dicts):
@@ -227,6 +287,10 @@ def get_user_input_interactive(torrent_dicts):
             'name': ' '.join([str(i + 1).ljust(4), torrent_name.ljust(80), torrent_seeds.ljust(6), torrent_leeches.ljust(6), torrent_size.center(12),
                               torrent_uploader])
         })
+    choices.append({
+        'value': "next",
+        'name': "next page >>"
+    })
 
     from prompt_toolkit import styles
     import questionary
@@ -247,7 +311,7 @@ def get_user_input_interactive(torrent_dicts):
         choices=choices,
         style=prompt_style
     ).ask()
-    return [answer]
+    return answer
 
 
 def get_args():
@@ -257,11 +321,11 @@ def get_args():
     parser.add_argument('search', help='Search term')
     parser.add_argument('--category', '-c', choices=CATEGORY2CODE.keys(), default='')
     parser.add_argument('--limit', '-l', type=float, default='inf', help='Limit number of torrent magnet links')
-    parser.add_argument('--domain', '-d', default='rarbgunblocked.org', help='Domain to search, you could put an alternative mirror domain here')
+    parser.add_argument('--domain', default='rarbgunblocked.org', help='Domain to search, you could put an alternative mirror domain here')
     parser.add_argument('--order', '-r', choices=orderkeys, default='', help='Order results (before query) by this key. empty string means no sort')
     parser.add_argument('--descending', action='store_true', help='Order in descending order (only available for --order)')
     parser.add_argument('--interactive', '-i', action='store_true', default=None, help='Force interactive mode, show interctive menu of torrents')
-
+    parser.add_argument('--download_dir', '-d', default=os.getcwd(), help='Download directory')
     parser.add_argument('--magnet', '-m', action='store_true', help='Output magnet links')
     parser.add_argument('--sort', '-s', choices=sortkeys, default='', help='Sort results (after scraping) by this key. empty string means no sort')
 
@@ -284,12 +348,14 @@ def get_args():
 
 def cli():
     args = get_args()
+    print(vars(args))
     return main(**vars(args), out_history_fname=dict_to_fname(args))
 
 
 def main(
     search,
     category='',
+    download_dir='.',
     limit=float('inf'),
     domain='rarbgunblocked.org',
     order='',
@@ -330,9 +396,14 @@ def main(
                 except Exception as e:
                     print('Error:', e)
 
-        # save history to json file
+        print('unique(dicts)', unique(dicts))
+        # reads file then merges with new dicts
         with open(out_history_path, 'w', encoding='utf8') as f:
-            json.dump(dicts, f, indent=4)
+            json.dump(unique(dicts), f, indent=4)
+
+        if download_dir:
+            torrent_urls = [d['torrent'] for d in dicts]
+            map(partial(download_file, out=download_dir, cookies=cookies), torrent_urls), 'downloading', len(torrent_urls)
 
         if magnet:
             real_print('\n'.join([t['magnet'] for t in dicts]))
@@ -340,17 +411,26 @@ def main(
             real_print(json.dumps(dicts, indent=4))
 
     # == dealing with cache and history ==
-    os.makedirs(os.path.join(PROGRAM_DIRECTORY, '.history'), exist_ok=True)
-    out_history_path = os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + '.json')
+    os.makedirs(os.path.join(PROGRAM_HOME, 'history'), exist_ok=True)
+    out_history_path = os.path.join(PROGRAM_HOME, 'history', out_history_fname + '.json')
+    if os.path.exists(out_history_path):
+        try:
+            with open(out_history_path, 'r') as f:
+                history = json.load(f)
+        except Exception as e:
+            print('Error:', e)
+            os.remove(out_history_path)
+            history = []
+    else:
+        history = []
 
-    if not no_cache and os.path.exists(out_history_path):
-        with open(out_history_path, 'r') as f:
-            history = json.load(f)
-        print('Using cached results from', out_history_path)
+    if not no_cache and history:
+        print(f'\n\nUsing cached results from "{out_history_path}"\nIf you think these results are outdated, use (--no_cache or -nc) to force a new search\n')
         print_results(history)
         sys.exit(0)
 
     magnets = []
+    torrentfiles = []
     torrents_all = []
     dicts_all = []
     i = 1
@@ -361,7 +441,7 @@ def main(
             by='DESC' if descending else 'ASC'
         ), cookies=cookies)
 
-        with open(os.path.join(PROGRAM_DIRECTORY, '.history', out_history_fname + f'_torrents_{i}.html'), 'w', encoding='utf8') as f:
+        with open(os.path.join(PROGRAM_HOME, 'history', out_history_fname + f'_torrents_{i}.html'), 'w', encoding='utf8') as f:
             f.write(r.text)
         parsed_html = BeautifulSoup(html, 'html.parser')
         torrents = parsed_html.select('tr.lista2 a[href^="/torrent/"][title]')
@@ -375,12 +455,15 @@ def main(
         if len(torrents) == 0:
             break
         magnets += list(map(extract_magnet, torrents))
+        torrentfiles += list(map(partial(extract_torrent_file, domain=domain), torrents))
+
         # removed torrents and magnet links that have empty magnets, but maintained order
-        torrents, magnets = zip(*[[a, m] for (a, m) in zip(torrents, magnets)])
-        torrents, magnets = list(torrents), list(magnets)
+        torrents, magnets, torrentfiles = zip(*[[a, m, d] for (a, m, d) in zip(torrents, magnets, torrentfiles)])
+        torrents, magnets, torrentfiles = list(torrents), list(magnets), list(torrentfiles)
 
         dicts_current = [{
             'title': torrent.get("title"),
+            'torrent': torrentfile,
             'href': f"https://{domain}{torrent.get('href')}",
             'date': datetime.datetime.strptime(str(torrent.findParent('tr').select_one('td:nth-child(3)').contents[0]), '%Y-%m-%d %H:%M:%S').timestamp(),
             'category': CODE2CATEGORY.get(torrent.findParent('tr').select_one('td:nth-child(1) img').get('src').split('/')[-1].replace('cat_new', '').replace('.gif', ''), 'UNKOWN'),
@@ -389,32 +472,35 @@ def main(
             'leechers': int(torrent.findParent('tr').select_one('td:nth-child(6)').contents[0]),
             'uploader': str(torrent.findParent('tr').select_one('td:nth-child(8)').contents[0]),
             'magnet': magnet,
-        } for (torrent, magnet) in zip(torrents, magnets)]
+        } for (torrent, magnet, torrentfile) in zip(torrents, magnets, torrentfiles)]
 
         dicts_all += dicts_current
         torrents_all += torrents
+
+        history = list(unique(dicts_all + history))
 
         if interactive:
             while True:
                 os.system('cls||clear')
                 user_input = get_user_input_interactive(dicts_current)
-                if not user_input:  # next page
+                print('user_input',user_input)
+                if user_input is None:  # next page
                     print("\nNo item selected\n")
                     pass
+                elif user_input == 'next':
+                    break
                 else:  # indexes
-                    input_indexes = [int(x) for x in user_input]
+                    input_index = int(user_input)
                     # save history to json file
-                    with open(out_history_path, 'w', encoding='utf8') as f:
-                        json.dump(dicts_all, f, indent=4)
-                    print_results([dicts_current[idx] for idx in input_indexes])
+                    print_results([dicts_current[input_index]])
 
-                user_input = input("[ENTER]: continue to the next page, [b]: go (b)ack to results, [q]: to (q)uit: ")
+                user_input = input("[ENTER]: continue to go back, [b]: go (b)ack to results, [q]: to (q)uit: ")
                 if user_input.lower() == 'b':
                     continue
                 elif user_input.lower() == 'q':
                     exit(0)
                 elif user_input == '':
-                    break
+                    continue
 
         if len(list(filter(None, magnets))) >= limit:
             print(f'reached limit {limit}, stopping')
@@ -422,6 +508,7 @@ def main(
         i += 1
 
     if not interactive:
+        history = list(unique(dicts_all + history))
         print_results(dicts_all)
 
 
