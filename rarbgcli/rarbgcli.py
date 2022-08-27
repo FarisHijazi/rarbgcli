@@ -19,16 +19,16 @@ import re
 import requests
 import sys
 import time
-import time
-import wget
 import wget
 import zipfile
+from tqdm import tqdm
 from bs4 import BeautifulSoup
 from functools import partial
 from http.cookies import SimpleCookie
 from pathlib import Path
 from requests.utils import quote
 from sys import platform, platform
+import asyncio
 
 
 real_print = print
@@ -228,9 +228,10 @@ def open_url(url):
         os.system('open ' + url)
 
 
-def download_file(url, out, cookies=None):
-    open_url(url)
-    time.sleep(1)
+async def open_torrentfiles(urls):
+    for url in tqdm(urls, 'downloading', total=len(urls)):
+        open_url(url)
+        await asyncio.sleep(0.5)
 
 
 def extract_magnet(anchor):
@@ -325,7 +326,7 @@ def get_args():
     parser.add_argument('--order', '-r', choices=orderkeys, default='', help='Order results (before query) by this key. empty string means no sort')
     parser.add_argument('--descending', action='store_true', help='Order in descending order (only available for --order)')
     parser.add_argument('--interactive', '-i', action='store_true', default=None, help='Force interactive mode, show interctive menu of torrents')
-    parser.add_argument('--download_dir', '-d', default=os.getcwd(), help='Download directory')
+    parser.add_argument('--download_torrents', '-d', action='store_true', default=None, help='Open torrent files in browser (which will download them)')
     parser.add_argument('--magnet', '-m', action='store_true', help='Output magnet links')
     parser.add_argument('--sort', '-s', choices=sortkeys, default='', help='Sort results (after scraping) by this key. empty string means no sort')
 
@@ -355,7 +356,7 @@ def cli():
 def main(
     search,
     category='',
-    download_dir='.',
+    download_torrents=None,
     limit=float('inf'),
     domain='rarbgunblocked.org',
     order='',
@@ -401,9 +402,10 @@ def main(
         with open(out_history_path, 'w', encoding='utf8') as f:
             json.dump(unique(dicts), f, indent=4)
 
-        if download_dir:
+        # open torrent urls in browser in the background (with delay between each one)
+        if download_torrents is True or interactive and input(f"Open {len(dicts)} torrent files in browser for downloading? (Y/n) ").lower() != 'n':
             torrent_urls = [d['torrent'] for d in dicts]
-            map(partial(download_file, out=download_dir, cookies=cookies), torrent_urls), 'downloading', len(torrent_urls)
+            asyncio.run(open_torrentfiles(torrent_urls))
 
         if magnet:
             real_print('\n'.join([t['magnet'] for t in dicts]))
