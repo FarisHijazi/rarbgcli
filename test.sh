@@ -2,7 +2,7 @@
 # alias rarbg="python rarbgcli/rarbgcli.py"
 (
     # install rarbgcli to make sure it gets all the correct packages
-    (pip install -U -e . || (echo "installation failed" && exit 1))
+    (pip install -U -e . --user || (echo "installation failed" && exit 1))
     ) && (
     # run with no cookies and no cache
     rarbg "Brutal DooM 2013 v18 Classics-P2P" -c games --order seeders --sort leechers --magnet --no_cookie --no_cache \
