@@ -412,6 +412,29 @@ def main(
         else:
             real_print(json.dumps(dicts, indent=4))
 
+    def interactive_loop(dicts):
+        while interactive:
+            os.system('cls||clear')
+            user_input = get_user_input_interactive(dicts)
+            print('user_input',user_input)
+            if user_input is None:  # next page
+                print("\nNo item selected\n")
+                pass
+            elif user_input == 'next':
+                break
+            else:  # indexes
+                input_index = int(user_input)
+                    # save history to json file
+                print_results([dicts[input_index]])
+
+            user_input = input("[ENTER]: continue to go back, [b]: go (b)ack to results, [q]: to (q)uit: ")
+            if user_input.lower() == 'b':
+                continue
+            elif user_input.lower() == 'q':
+                exit(0)
+            elif user_input == '':
+                continue
+
     # == dealing with cache and history ==
     os.makedirs(os.path.join(PROGRAM_HOME, 'history'), exist_ok=True)
     out_history_path = os.path.join(PROGRAM_HOME, 'history', out_history_fname + '.json')
@@ -428,8 +451,8 @@ def main(
 
     if not no_cache and history:
         print(f'\n\nUsing cached results from "{out_history_path}"\nIf you think these results are outdated, use (--no_cache or -nc) to force a new search\n')
-        print_results(history)
-        sys.exit(0)
+        if interactive:
+            interactive_loop(history)
 
     magnets = []
     torrentfiles = []
@@ -482,27 +505,7 @@ def main(
         history = list(unique(dicts_all + history))
 
         if interactive:
-            while True:
-                os.system('cls||clear')
-                user_input = get_user_input_interactive(dicts_current)
-                print('user_input',user_input)
-                if user_input is None:  # next page
-                    print("\nNo item selected\n")
-                    pass
-                elif user_input == 'next':
-                    break
-                else:  # indexes
-                    input_index = int(user_input)
-                    # save history to json file
-                    print_results([dicts_current[input_index]])
-
-                user_input = input("[ENTER]: continue to go back, [b]: go (b)ack to results, [q]: to (q)uit: ")
-                if user_input.lower() == 'b':
-                    continue
-                elif user_input.lower() == 'q':
-                    exit(0)
-                elif user_input == '':
-                    continue
+            interactive_loop(dicts_current)
 
         if len(list(filter(None, magnets))) >= limit:
             print(f'reached limit {limit}, stopping')
