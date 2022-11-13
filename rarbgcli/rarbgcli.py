@@ -493,9 +493,6 @@ def main(
     else:
         history = []
 
-    magnets = []
-    torrentfiles = []
-    torrents_all = []
     dicts_all = []
     i = 1
     while True:  # for all pages
@@ -514,7 +511,6 @@ def main(
             f.write(r.text)
         parsed_html = BeautifulSoup(html, "html.parser")
         torrents = parsed_html.select('tr.lista2 a[href^="/torrent/"][title]')
-        torrents = [torrent for torrent in torrents if torrent not in torrents_all]
 
         if r.status_code != 200:
             print("error", r.status_code)
@@ -523,8 +519,8 @@ def main(
         print(f"{len(torrents)} torrents found")
         if len(torrents) == 0:
             break
-        magnets += list(map(extract_magnet, torrents))
-        torrentfiles += list(map(partial(extract_torrent_file, domain=domain), torrents))
+        magnets = list(map(extract_magnet, torrents))
+        torrentfiles = list(map(partial(extract_torrent_file, domain=domain), torrents))
 
         # removed torrents and magnet links that have empty magnets, but maintained order
         torrents, magnets, torrentfiles = zip(*[[a, m, d] for (a, m, d) in zip(torrents, magnets, torrentfiles)])
@@ -552,14 +548,13 @@ def main(
         ]
 
         dicts_all += dicts_current
-        torrents_all += torrents
 
         history = list(unique(dicts_all + history))
 
         if interactive:
             interactive_loop(dicts_current)
 
-        if len(list(filter(None, magnets))) >= limit:
+        if len(list(filter(None, torrents))) >= limit:
             print(f"reached limit {limit}, stopping")
             break
         i += 1
