@@ -8,8 +8,8 @@ Example usage:
 
 https://github.com/FarisHijazi/rarbgcli
 
-TODO: turn this lib into an API lib (keep the CLI as a bonus)
 """
+# TODO: turn this lib into an API lib (keep the CLI as a bonus)
 
 import argparse
 import datetime
