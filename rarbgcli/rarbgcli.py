@@ -256,6 +256,16 @@ def parse_size(size: str):
     return int(float(number) * size_units[unit])
 
 
+def format_size(size: int, block_size="auto"):
+    """automatically format the size to the most appropriate unit"""
+    if block_size == "auto":
+        for unit in reversed(list(size_units.keys())):
+            if size >= size_units[unit]:
+                return f"{size / size_units[unit]:.2f} {unit}"
+    else:
+        return f"{size / size_units[block_size]:.2f} {block_size}"
+
+
 def dict_to_fname(d):
     # copy and sanitize
     white_list = {"limit", "category", "order", "search", "descending"}
@@ -322,7 +332,7 @@ def get_args():
     parser.add_argument("--download_torrents", "-d", action="store_true", default=None, help="Open torrent files in browser (which will download them)")
     parser.add_argument("--magnet", "-m", action="store_true", help="Output magnet links")
     parser.add_argument("--sort", "-s", choices=sortkeys, default="", help="Sort results (after scraping) by this key. empty string means no sort")
-
+    parser.add_argument("--block_size", "-B", metavar="SIZE", default="auto", choices=list(size_units.keys()) + ["auto"], help="Display torrent sizes in units of SIZE")
     parser.add_argument("--no_cache", "-nc", action="store_true", help="Don't use cached results from previous searches")
     parser.add_argument("--no_cookie", "-nk", action="store_true", help="Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)")
     args = parser.parse_args()
@@ -485,7 +495,7 @@ def main(
                 "href": f"https://{domain}{torrent.get('href')}",
                 "date": datetime.datetime.strptime(str(torrent.findParent("tr").select_one("td:nth-child(3)").contents[0]), "%Y-%m-%d %H:%M:%S").timestamp(),
                 "category": CODE2CATEGORY.get(torrent.findParent("tr").select_one("td:nth-child(1) img").get("src").split("/")[-1].replace("cat_new", "").replace(".gif", ""), "UNKOWN"),
-                "size": parse_size(torrent.findParent("tr").select_one("td:nth-child(4)").contents[0]),
+                "size": format_size(parse_size(torrent.findParent("tr").select_one("td:nth-child(4)").contents[0]), block_size),
                 "seeders": int(torrent.findParent("tr").select_one("td:nth-child(5) > font").contents[0]),
                 "leechers": int(torrent.findParent("tr").select_one("td:nth-child(6)").contents[0]),
                 "uploader": str(torrent.findParent("tr").select_one("td:nth-child(8)").contents[0]),
