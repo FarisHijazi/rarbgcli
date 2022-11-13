@@ -103,7 +103,7 @@ def solveCaptcha(threat_defence_url):
     # import get_chrome_driver  # no longer needed since ChromeDriverManager exists
     # chromedriver_path = get_chrome_driver.main(PROGRAM_HOME)
     driver = webdriver.Chrome(
-        ChromeDriverManager().install(), chrome_options=options, service_log_path=("NUL" if sys.platform == "win32" else "/dev/null")
+        ChromeDriverManager(path=PROGRAM_HOME).install(), chrome_options=options, service_log_path=("NUL" if sys.platform == "win32" else "/dev/null")
     )
     print("successfully loaded chrome driver")
 
@@ -239,7 +239,8 @@ def open_url(url):
 async def open_torrentfiles(urls):
     for url in tqdm(urls, "downloading", total=len(urls)):
         open_url(url)
-        await asyncio.sleep(0.5)
+        if len(urls) > 5:
+            await asyncio.sleep(0.5)
 
 
 def extract_magnet(anchor):
@@ -266,9 +267,9 @@ def parse_size(size: str):
     return int(float(number) * size_units[unit])
 
 
-def format_size(size: int, block_size="auto"):
+def format_size(size: int, block_size=None):
     """automatically format the size to the most appropriate unit"""
-    if block_size == "auto":
+    if block_size is None:
         for unit in reversed(list(size_units.keys())):
             if size >= size_units[unit]:
                 return f"{size / size_units[unit]:.2f} {unit}"
@@ -361,10 +362,11 @@ def get_args():
     parser.add_argument(
         "--block_size",
         "-B",
+        type=lambda x: x.upper(),
         metavar="SIZE",
-        default="auto",
-        choices=list(size_units.keys()) + ["auto"],
-        help="Display torrent sizes in units of SIZE",
+        default=None,
+        choices=list(size_units.keys()),
+        help="Display torrent sizes in SIZE unit. Choices are: " + str(set(list(size_units.keys()))),
     )
     parser.add_argument("--no_cache", "-nc", action="store_true", help="Don't use cached results from previous searches")
     parser.add_argument(
@@ -401,7 +403,7 @@ def load_cookies(no_cookie):
 def cli():
     args = get_args()
     print(vars(args))
-    return main(**vars(args), out_history_fname=dict_to_fname(args))
+    return main(**vars(args), _session_name=dict_to_fname(args))
 
 
 def main(
@@ -417,8 +419,8 @@ def main(
     sort="",
     no_cache=False,
     no_cookie=False,
-    out_history_fname="untitled",
     block_size="auto",
+    _session_name="untitled",  # unique name based on args, used for caching
 ):
 
     cookies = load_cookies(no_cookie)
@@ -442,7 +444,7 @@ def main(
 
         print("unique(dicts)", unique(dicts))
         # reads file then merges with new dicts
-        with open(out_history_path, "w", encoding="utf8") as f:
+        with open(cache_file, "w", encoding="utf8") as f:
             json.dump(unique(dicts), f, indent=4)
 
         # open torrent urls in browser in the background (with delay between each one)
@@ -468,7 +470,6 @@ def main(
                 break
             else:  # indexes
                 input_index = int(user_input)
-                # save history to json file
                 print_results([dicts[input_index]])
 
             user_input = input("[ENTER]: continue to go back, [b]: go (b)ack to results, [q]: to (q)uit: ")
@@ -480,18 +481,18 @@ def main(
                 continue
 
     # == dealing with cache and history ==
-    os.makedirs(os.path.join(PROGRAM_HOME, "history"), exist_ok=True)
-    out_history_path = os.path.join(PROGRAM_HOME, "history", out_history_fname + ".json")
-    if os.path.exists(out_history_path) and not no_cache:
+    cache_file = os.path.join(PROGRAM_HOME, "history", _session_name + ".json")
+    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+    if os.path.exists(cache_file) and not no_cache:
         try:
-            with open(out_history_path, "r") as f:
-                history = json.load(f)
+            with open(cache_file, "r") as f:
+                cache = json.load(f)
         except Exception as e:
             print("Error:", e)
-            os.remove(out_history_path)
-            history = []
+            os.remove(cache_file)
+            cache = []
     else:
-        history = []
+        cache = []
 
     dicts_all = []
     i = 1
@@ -507,7 +508,7 @@ def main(
         )
         r, html, cookies = get_page_html(target_url_formatted, cookies=cookies)
 
-        with open(os.path.join(PROGRAM_HOME, "history", out_history_fname + f"_torrents_{i}.html"), "w", encoding="utf8") as f:
+        with open(os.path.join(os.path.dirname(cache_file), _session_name + f"_torrents_{i}.html"), "w", encoding="utf8") as f:
             f.write(r.text)
         parsed_html = BeautifulSoup(html, "html.parser")
         torrents = parsed_html.select('tr.lista2 a[href^="/torrent/"][title]')
@@ -549,7 +550,7 @@ def main(
 
         dicts_all += dicts_current
 
-        history = list(unique(dicts_all + history))
+        cache = list(unique(dicts_all + cache))
 
         if interactive:
             interactive_loop(dicts_current)
@@ -560,7 +561,7 @@ def main(
         i += 1
 
     if not interactive:
-        dicts_all = list(unique(dicts_all + history))
+        dicts_all = list(unique(dicts_all + cache))
         print_results(dicts_all)
 
 

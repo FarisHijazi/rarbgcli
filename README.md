@@ -25,6 +25,7 @@ From source (latest)
 ## Usage
 
 Both aliases are valid for the same command: `rarbg` or `rarbgcli`
+
     usage:
         [-h] [--category {movies,xxx,music,tvshows,software,games,nonxxx,}] [--limit LIMIT] [--domain DOMAIN] [--order {data,filename,leechers,seeders,size,}] [--descending] [--interactive] [--download_torrents] [--magnet] [--sort {title,date,size,seeders,leechers,}]
         [--block_size SIZE] [--no_cache] [--no_cookie]
