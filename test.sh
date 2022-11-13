@@ -1,4 +1,7 @@
 #!/bin/bash
+set -uo pipefail
+set +e
+
 # alias rarbg="python rarbgcli/rarbgcli.py"
 (
     # install rarbgcli to make sure it gets all the correct packages

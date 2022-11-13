@@ -1,4 +1,3 @@
-import requests
 import wget
 import zipfile
 import os

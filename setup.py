@@ -22,7 +22,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
     install_requires=rqeuirements,
-    keywords="html table htmltable html-table base64 report",
+    keywords="rarbg torrent rarbgcli rarbgapi cli api scraper rarbg-cli rarbg-api rarbg-scraper",
     entry_points={
         "console_scripts": [
             "rarbgcli=rarbgcli.rarbgcli:cli",
