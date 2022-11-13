@@ -102,7 +102,9 @@ def solveCaptcha(threat_defence_url):
 
     # import get_chrome_driver  # no longer needed since ChromeDriverManager exists
     # chromedriver_path = get_chrome_driver.main(PROGRAM_HOME)
-    driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options, service_log_path=("NUL" if sys.platform == "win32" else "/dev/null"))
+    driver = webdriver.Chrome(
+        ChromeDriverManager().install(), chrome_options=options, service_log_path=("NUL" if sys.platform == "win32" else "/dev/null")
+    )
     print("successfully loaded chrome driver")
 
     driver.implicitly_wait(10)
@@ -188,7 +190,9 @@ def deal_with_threat_defence(threat_defence_url):
         return solveCaptcha(threat_defence_url)
     except Exception as e:
         if not sys.stdout.isatty():
-            raise Exception("Failed to solve captcha automatically, please rerun this command (without a pipe `|`) and solve it manually. This process only needs to be done once") from e
+            raise Exception(
+                "Failed to solve captcha automatically, please rerun this command (without a pipe `|`) and solve it manually. This process only needs to be done once"
+            ) from e
 
         print("Failed to solve captcha, please solve manually", e)
         return deal_with_threat_defence_manual(threat_defence_url)
@@ -213,7 +217,13 @@ def get_page_html(target_url, cookies):
 
 def extract_torrent_file(anchor, domain="rarbgunblocked.org"):
     return (
-        "https://" + domain + anchor.get("href").replace("torrent/", "download.php?id=") + "&f=" + quote(anchor.contents[0] + "-[rarbg.to].torrent") + "&tpageurl=" + quote(anchor.get("href").strip())
+        "https://"
+        + domain
+        + anchor.get("href").replace("torrent/", "download.php?id=")
+        + "&f="
+        + quote(anchor.contents[0] + "-[rarbg.to].torrent")
+        + "&tpageurl="
+        + quote(anchor.get("href").strip())
     )
 
 
@@ -248,7 +258,7 @@ def extract_magnet(anchor):
         return ""
 
 
-size_units = {"B": 1, "KB": 10 ** 3, "MB": 10 ** 6, "GB": 10 ** 9, "TB": 10 ** 12, "PB": 10 ** 15, "EB": 10 ** 18, "ZB": 10 ** 21, "YB": 10 ** 24}
+size_units = {"B": 1, "KB": 10**3, "MB": 10**6, "GB": 10**9, "TB": 10**12, "PB": 10**15, "EB": 10**18, "ZB": 10**21, "YB": 10**24}
 
 
 def parse_size(size: str):
@@ -294,7 +304,21 @@ def get_user_input_interactive(torrent_dicts):
         torrent_seeds = str(torrent_dicts[i]["seeders"])
         torrent_leeches = str(torrent_dicts[i]["leechers"])
         torrent_uploader = str(torrent_dicts[i]["uploader"])
-        choices.append({"value": int(i), "name": " ".join([str(i + 1).ljust(4), torrent_name.ljust(80), torrent_seeds.ljust(6), torrent_leeches.ljust(6), torrent_size.center(12), torrent_uploader])})
+        choices.append(
+            {
+                "value": int(i),
+                "name": " ".join(
+                    [
+                        str(i + 1).ljust(4),
+                        torrent_name.ljust(80),
+                        torrent_seeds.ljust(6),
+                        torrent_leeches.ljust(6),
+                        torrent_size.center(12),
+                        torrent_uploader,
+                    ]
+                ),
+            }
+        )
     choices.append({"value": "next", "name": "next page >>"})
 
     from prompt_toolkit import styles
@@ -329,12 +353,23 @@ def get_args():
     parser.add_argument("--order", "-r", choices=orderkeys, default="", help="Order results (before query) by this key. empty string means no sort")
     parser.add_argument("--descending", action="store_true", help="Order in descending order (only available for --order)")
     parser.add_argument("--interactive", "-i", action="store_true", default=None, help="Force interactive mode, show interctive menu of torrents")
-    parser.add_argument("--download_torrents", "-d", action="store_true", default=None, help="Open torrent files in browser (which will download them)")
+    parser.add_argument(
+        "--download_torrents", "-d", action="store_true", default=None, help="Open torrent files in browser (which will download them)"
+    )
     parser.add_argument("--magnet", "-m", action="store_true", help="Output magnet links")
     parser.add_argument("--sort", "-s", choices=sortkeys, default="", help="Sort results (after scraping) by this key. empty string means no sort")
-    parser.add_argument("--block_size", "-B", metavar="SIZE", default="auto", choices=list(size_units.keys()) + ["auto"], help="Display torrent sizes in units of SIZE")
+    parser.add_argument(
+        "--block_size",
+        "-B",
+        metavar="SIZE",
+        default="auto",
+        choices=list(size_units.keys()) + ["auto"],
+        help="Display torrent sizes in units of SIZE",
+    )
     parser.add_argument("--no_cache", "-nc", action="store_true", help="Don't use cached results from previous searches")
-    parser.add_argument("--no_cookie", "-nk", action="store_true", help="Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)")
+    parser.add_argument(
+        "--no_cookie", "-nk", action="store_true", help="Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)"
+    )
     args = parser.parse_args()
 
     if args.interactive is None:
@@ -465,7 +500,14 @@ def main(
     i = 1
     while True:  # for all pages
         target_url = "https://{domain}/torrents.php?search={search}&order={order}&category={category}&page={page}&by={by}"
-        target_url_formatted = target_url.format(domain=domain.strip(), search=quote(search), order=order, category=";".join(CATEGORY2CODE[category]), page=i, by="DESC" if descending else "ASC")
+        target_url_formatted = target_url.format(
+            domain=domain.strip(),
+            search=quote(search),
+            order=order,
+            category=";".join(CATEGORY2CODE[category]),
+            page=i,
+            by="DESC" if descending else "ASC",
+        )
         r, html, cookies = get_page_html(target_url_formatted, cookies=cookies)
 
         with open(os.path.join(PROGRAM_HOME, "history", out_history_fname + f"_torrents_{i}.html"), "w", encoding="utf8") as f:
@@ -493,8 +535,13 @@ def main(
                 "title": torrent.get("title"),
                 "torrent": torrentfile,
                 "href": f"https://{domain}{torrent.get('href')}",
-                "date": datetime.datetime.strptime(str(torrent.findParent("tr").select_one("td:nth-child(3)").contents[0]), "%Y-%m-%d %H:%M:%S").timestamp(),
-                "category": CODE2CATEGORY.get(torrent.findParent("tr").select_one("td:nth-child(1) img").get("src").split("/")[-1].replace("cat_new", "").replace(".gif", ""), "UNKOWN"),
+                "date": datetime.datetime.strptime(
+                    str(torrent.findParent("tr").select_one("td:nth-child(3)").contents[0]), "%Y-%m-%d %H:%M:%S"
+                ).timestamp(),
+                "category": CODE2CATEGORY.get(
+                    torrent.findParent("tr").select_one("td:nth-child(1) img").get("src").split("/")[-1].replace("cat_new", "").replace(".gif", ""),
+                    "UNKOWN",
+                ),
                 "size": format_size(parse_size(torrent.findParent("tr").select_one("td:nth-child(4)").contents[0]), block_size),
                 "seeders": int(torrent.findParent("tr").select_one("td:nth-child(5) > font").contents[0]),
                 "leechers": int(torrent.findParent("tr").select_one("td:nth-child(6)").contents[0]),
