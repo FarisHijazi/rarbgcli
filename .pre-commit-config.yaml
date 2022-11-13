@@ -11,3 +11,10 @@ repos:
       - id: black
         args: ["--line-length", "150"]
         exclude: ^dist/
+
+  # shellcheck-py for linting shell files
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.8.0.4
+    hooks:
+      - id: shellcheck
+        args: ["-e", "SC2015"]
