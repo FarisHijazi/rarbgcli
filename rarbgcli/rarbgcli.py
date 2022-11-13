@@ -436,7 +436,8 @@ def main(
     i = 1
     while True:  # for all pages
         target_url = "https://{domain}/torrents.php?search={search}&order={order}&category={category}&page={page}&by={by}"
-        r, html, cookies = get_page_html(target_url.format(domain=domain, search=search, order=order, category=";".join(CATEGORY2CODE[category]), page=i, by="DESC" if descending else "ASC"), cookies=cookies)
+        target_url_formatted = target_url.format(domain=domain.strip(), search=quote(search), order=order, category=";".join(CATEGORY2CODE[category]), page=i, by="DESC" if descending else "ASC")
+        r, html, cookies = get_page_html(target_url_formatted, cookies=cookies)
 
         with open(os.path.join(PROGRAM_HOME, "history", out_history_fname + f"_torrents_{i}.html"), "w", encoding="utf8") as f:
             f.write(r.text)
