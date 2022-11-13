@@ -27,7 +27,7 @@ from functools import partial
 from http.cookies import SimpleCookie
 from pathlib import Path
 from requests.utils import quote
-from sys import platform, platform
+from sys import platform
 import asyncio
 
 
@@ -56,7 +56,7 @@ for category, codes in CATEGORY2CODE.items():
             CODE2CATEGORY[code] = category
 
 
-## Captcha solving taken from https://github.com/confident-hate/seedr-cli
+# Captcha solving taken from https://github.com/confident-hate/seedr-cli
 
 
 def solveCaptcha(threat_defence_url):
@@ -78,7 +78,7 @@ def solveCaptcha(threat_defence_url):
             clk_here_button.click()
             time.sleep(10)
             WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "solve_string")))
-        except:
+        except Exception:
             pass
         finally:
             element = driver.find_elements_by_css_selector("img")[1]
@@ -212,7 +212,9 @@ def get_page_html(target_url, cookies):
 
 
 def extract_torrent_file(anchor, domain="rarbgunblocked.org"):
-    return "https://" + domain + anchor.get("href").replace("torrent/", "download.php?id=") + "&f=" + quote(anchor.contents[0] + "-[rarbg.to].torrent") + "&tpageurl=" + quote(anchor.get("href").strip())
+    return (
+        "https://" + domain + anchor.get("href").replace("torrent/", "download.php?id=") + "&f=" + quote(anchor.contents[0] + "-[rarbg.to].torrent") + "&tpageurl=" + quote(anchor.get("href").strip())
+    )
 
 
 def open_url(url):
@@ -242,12 +244,14 @@ def extract_magnet(anchor):
         hash = re.search(regex, str(anchor))[1]
         title = quote(anchor.get("title"))
         return f"magnet:?xt=urn:btih:{hash}&dn={title}&tr={trackers}"
-    except Exception as e:
+    except Exception:
         return ""
 
 
-def parse_size(size):
-    size_units = {"B": 1, "KB": 10**3, "MB": 10**6, "GB": 10**9, "TB": 10**12}
+size_units = {"B": 1, "KB": 10 ** 3, "MB": 10 ** 6, "GB": 10 ** 9, "TB": 10 ** 12, "PB": 10 ** 15, "EB": 10 ** 18, "ZB": 10 ** 21, "YB": 10 ** 24}
+
+
+def parse_size(size: str):
     number, unit = [string.strip() for string in size.strip().split()]
     return int(float(number) * size_units[unit])
 
@@ -286,7 +290,20 @@ def get_user_input_interactive(torrent_dicts):
     from prompt_toolkit import styles
     import questionary
 
-    prompt_style = styles.Style([("qmark", "fg:#5F819D bold"), ("question", "fg:#289c64 bold"), ("answer", "fg:#48b5b5 bold"), ("pointer", "fg:#48b5b5 bold"), ("highlighted", "fg:#07d1e8"), ("selected", "fg:#48b5b5 bold"), ("separator", "fg:#6C6C6C"), ("instruction", "fg:#77a371"), ("text", ""), ("disabled", "fg:#858585 italic")])
+    prompt_style = styles.Style(
+        [
+            ("qmark", "fg:#5F819D bold"),
+            ("question", "fg:#289c64 bold"),
+            ("answer", "fg:#48b5b5 bold"),
+            ("pointer", "fg:#48b5b5 bold"),
+            ("highlighted", "fg:#07d1e8"),
+            ("selected", "fg:#48b5b5 bold"),
+            ("separator", "fg:#6C6C6C"),
+            ("instruction", "fg:#77a371"),
+            ("text", ""),
+            ("disabled", "fg:#858585 italic"),
+        ]
+    )
     answer = questionary.select(header + "\nSelect torrents", choices=choices, style=prompt_style).ask()
     return answer
 
@@ -322,6 +339,20 @@ def get_args():
     return args
 
 
+def load_cookies(no_cookie):
+    # read cookies from json file
+    cookies = {}
+    # make empty cookie if cookie doesn't already exist
+    if not os.path.exists(COOKIES_PATH):
+        with open(COOKIES_PATH, "w") as f:
+            json.dump({}, f)
+
+    if not no_cookie:
+        with open(COOKIES_PATH, "r") as f:
+            cookies = json.load(f)
+    return cookies
+
+
 def cli():
     args = get_args()
     print(vars(args))
@@ -342,18 +373,10 @@ def main(
     no_cache=False,
     no_cookie=False,
     out_history_fname="untitled",
+    block_size="auto",
 ):
 
-    # read cookies from json file
-    cookies = {}
-    # make empty cookie if cookie doesn't already exist
-    if not os.path.exists(COOKIES_PATH):
-        with open(COOKIES_PATH, "w") as f:
-            json.dump({}, f)
-
-    if not no_cookie:
-        with open(COOKIES_PATH, "r") as f:
-            cookies = json.load(f)
+    cookies = load_cookies(no_cookie)
 
     def print_results(dicts):
         if sort:
@@ -380,7 +403,8 @@ def main(
         # open torrent urls in browser in the background (with delay between each one)
         if download_torrents is True or interactive and input(f"Open {len(dicts)} torrent files in browser for downloading? (Y/n) ").lower() != "n":
             torrent_urls = [d["torrent"] for d in dicts]
-            asyncio.run(open_torrentfiles(torrent_urls))
+            magnet_urls = [d["magnet"] for d in dicts]
+            asyncio.run(open_torrentfiles(torrent_urls + magnet_urls))
 
         if magnet:
             real_print("\n".join([t["magnet"] for t in dicts]))
@@ -423,11 +447,6 @@ def main(
             history = []
     else:
         history = []
-
-    if not no_cache and history:
-        print(f'\n\nUsing cached results from "{out_history_path}"\nIf you think these results are outdated, use (--no_cache or -nc) to force a new search\n')
-        if interactive:
-            interactive_loop(history)
 
     magnets = []
     torrentfiles = []
@@ -489,7 +508,7 @@ def main(
         i += 1
 
     if not interactive:
-        history = list(unique(dicts_all + history))
+        dicts_all = list(unique(dicts_all + history))
         print_results(dicts_all)
 
 
