@@ -413,7 +413,7 @@ def main(
     # == dealing with cache and history ==
     os.makedirs(os.path.join(PROGRAM_HOME, "history"), exist_ok=True)
     out_history_path = os.path.join(PROGRAM_HOME, "history", out_history_fname + ".json")
-    if os.path.exists(out_history_path):
+    if os.path.exists(out_history_path) and not no_cache:
         try:
             with open(out_history_path, "r") as f:
                 history = json.load(f)
