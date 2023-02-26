@@ -1,3 +1,4 @@
+asyncio
 beautifulsoup4==4.11.1
 Pillow==9.2.0
 prompt_toolkit==3.0.20
@@ -5,7 +6,6 @@ pytesseract==0.3.9
 questionary==1.10.0
 requests==2.27.1
 selenium==3.141.0
-wget==3.2
-webdriver-manager==3.8.3
 tqdm
-asyncio
+webdriver-manager==3.8.3
+wget==3.2

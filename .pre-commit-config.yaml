@@ -1,20 +1,74 @@
 repos:
+  # a set of useful Python-based pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
+    rev: v4.4.0
     hooks:
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
+      # list of definitions and supported hooks: https://pre-commit.com/hooks.html
+      - id: trailing-whitespace # removes any whitespace at the ends of lines
+      - id: check-toml # check toml syntax by loading all toml files
+      - id: check-yaml # check yaml syntax by loading all yaml files
+      - id: check-json # check-json syntax by loading all json files
+      - id: check-merge-conflict # check for files with merge conflict strings
+        args: ["--assume-in-merge"] #  and run this check even when not explicitly in a merge
+      - id: check-added-large-files # check that no "large" files have been added
+        args: ["--maxkb=10240"] #  where large means 10MB+, as in Hugging Face's git server
+      - id: debug-statements # check for python debug statements (import pdb, breakpoint, etc.)
+      - id: detect-private-key # checks for private keys (BEGIN X PRIVATE KEY, etc.)
       - id: mixed-line-ending
+        args: ["--fix=lf"] # convert mixed line endings to unix style
+      - id: end-of-file-fixer # makes sure files end in a newline and only a newline
+      - id: check-case-conflict # check for files with names that would conflict on a case-insensitive filesystem
+      - id: check-symlinks # check for symlinks
+      - id: check-ast # check for syntax errors in python files
+      - id: check-xml # check for syntax errors in xml files
+      - id: check-executables-have-shebangs # check that executables have shebangs
+      - id: sort-simple-yaml # sort yaml files
+      - id: requirements-txt-fixer # sort requirements.txt files
+      - id: pretty-format-json # pretty format json files
+      - id: double-quote-string-fixer # convert single quotes to double quotes deal with strings in python files
+
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.0.0
+    hooks:
+      - id: autoflake
+        args:
+          [
+            "--in-place",
+            "--expand-star-imports",
+            "--ignore-init-module-imports",
+            "--remove-all-unused-imports",
+            "--remove-unused-variables",
+          ]
+  - repo: https://github.com/pycqa/isort
+    rev: 5.11.2
+    hooks:
+      - id: isort
+        name: isort (python)
+
+  # black python autoformatting
   - repo: https://github.com/psf/black
-    rev: 22.3.0
+    rev: 22.12.0
     hooks:
       - id: black
-        args: ["--line-length", "150"]
-        exclude: ^dist/
-
+        args:
+          [
+            "--line-length",
+            "150",
+            "--target-version",
+            "py37",
+            "--skip-string-normalization",
+          ]
+    # additional configuration of black in pyproject.toml
   # shellcheck-py for linting shell files
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.8.0.4
+    rev: v0.9.0.2
     hooks:
       - id: shellcheck
-        args: ["-e", "SC2015"]
+  - repo: local
+    hooks:
+      - id: jupyter-nb-clear-output
+        name: jupyter-nb-clear-output
+        files: \.ipynb$
+        stages: [commit]
+        language: system
+        entry: jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace

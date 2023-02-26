@@ -1,3 +1,1 @@
-from . import rarbgcli
-from . import download_tesseract
-from . import get_chrome_driver
+from . import download_tesseract, get_chrome_driver, rarbgcli
