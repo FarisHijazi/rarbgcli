@@ -29,7 +29,7 @@ from pathlib import Path
 from requests.utils import quote
 from sys import platform
 import asyncio
-
+import yaml
 
 real_print = print
 print = print if sys.stdout.isatty() else partial(print, file=sys.stderr)
@@ -296,7 +296,7 @@ def unique(dicts):
     return deduped
 
 
-def get_user_input_interactive(torrent_dicts):
+def get_user_input_interactive(torrent_dicts, start_index=0):
     header = " ".join(["SN".ljust(4), "TORRENT NAME".ljust(80), "SEEDS".ljust(6), "LEECHES".ljust(6), "SIZE".center(12), "UPLOADER"])
     choices = []
     for i in range(len(torrent_dicts)):
@@ -310,7 +310,7 @@ def get_user_input_interactive(torrent_dicts):
                 "value": int(i),
                 "name": " ".join(
                     [
-                        str(i + 1).ljust(4),
+                        str(start_index + i + 1).ljust(4),
                         torrent_name.ljust(80),
                         torrent_seeds.ljust(6),
                         torrent_leeches.ljust(6),
@@ -347,19 +347,30 @@ def get_args():
     orderkeys = ["data", "filename", "leechers", "seeders", "size", ""]
     sortkeys = ["title", "date", "size", "seeders", "leechers", ""]
     parser = argparse.ArgumentParser(__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    # parser = parser.add_argument_group("Query")
     parser.add_argument("search", help="Search term")
-    parser.add_argument("--category", "-c", choices=CATEGORY2CODE.keys(), default="")
-    parser.add_argument("--limit", "-l", type=float, default="inf", help="Limit number of torrent magnet links")
+    parser.add_argument("--category", "-c", choices=CATEGORY2CODE.keys(), default="nonxxx")
     parser.add_argument("--domain", default="rarbgunblocked.org", help="Domain to search, you could put an alternative mirror domain here")
-    parser.add_argument("--order", "-r", choices=orderkeys, default="", help="Order results (before query) by this key. empty string means no sort")
-    parser.add_argument("--descending", action="store_true", help="Order in descending order (only available for --order)")
-    parser.add_argument("--interactive", "-i", action="store_true", default=None, help="Force interactive mode, show interctive menu of torrents")
     parser.add_argument(
+        "--order", "-r", choices=orderkeys, default="", help="Order results (before query) by this key. empty string means no sort"
+    )
+    parser.add_argument(
+        "--sort_order", "-o", choices=["asc", "desc"], default=None, help="Sort order ascending or descending (only availeble with --order)"
+    )
+
+    output_group = parser.add_argument_group("Output options")
+    output_group.add_argument("--magnet", "-m", action="store_true", help="Output magnet links")
+    output_group.add_argument(
+        "--sort", "-s", choices=sortkeys, default="", help="Sort results (after scraping) by this key. empty string means no sort"
+    )
+    output_group.add_argument("--limit", "-l", type=float, default="inf", help="Limit number of torrent magnet links")
+    output_group.add_argument(
+        "--interactive", "-i", action="store_true", default=None, help="Force interactive mode, show interctive menu of torrents"
+    )
+    output_group.add_argument(
         "--download_torrents", "-d", action="store_true", default=None, help="Open torrent files in browser (which will download them)"
     )
-    parser.add_argument("--magnet", "-m", action="store_true", help="Output magnet links")
-    parser.add_argument("--sort", "-s", choices=sortkeys, default="", help="Sort results (after scraping) by this key. empty string means no sort")
-    parser.add_argument(
+    output_group.add_argument(
         "--block_size",
         "-B",
         type=lambda x: x.upper(),
@@ -368,8 +379,10 @@ def get_args():
         choices=list(size_units.keys()),
         help="Display torrent sizes in SIZE unit. Choices are: " + str(set(list(size_units.keys()))),
     )
-    parser.add_argument("--no_cache", "-nc", action="store_true", help="Don't use cached results from previous searches")
-    parser.add_argument(
+
+    misc_group = parser.add_argument_group("Miscilaneous")
+    misc_group.add_argument("--no_cache", "-nc", action="store_true", help="Don't use cached results from previous searches")
+    misc_group.add_argument(
         "--no_cookie", "-nk", action="store_true", help="Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)"
     )
     args = parser.parse_args()
@@ -380,8 +393,8 @@ def get_args():
     if not args.limit >= 1:
         print("--limit must be greater than 1", file=sys.stderr)
         exit(1)
-    if args.descending and not args.order:
-        print("--descending requires --order", file=sys.stderr)
+    if args.sort_order is not None and not args.order:
+        print("--sort_order requires --order", file=sys.stderr)
         exit(1)
     return args
 
@@ -413,7 +426,7 @@ def main(
     limit=float("inf"),
     domain="rarbgunblocked.org",
     order="",
-    descending=False,
+    sort_order=None,
     interactive=False,
     magnet=False,
     sort="",
@@ -442,7 +455,9 @@ def main(
                 except Exception as e:
                     print("Error:", e)
 
-        print("unique(dicts)", unique(dicts))
+        # pretty print unique(dicts) as yaml
+        print("torrents:", yaml.dump(unique(dicts), default_flow_style=False))
+
         # reads file then merges with new dicts
         with open(cache_file, "w", encoding="utf8") as f:
             json.dump(unique(dicts), f, indent=4)
@@ -461,7 +476,7 @@ def main(
     def interactive_loop(dicts):
         while interactive:
             os.system("cls||clear")
-            user_input = get_user_input_interactive(dicts)
+            user_input = get_user_input_interactive(dicts, start_index=len(dicts_all) - len(dicts_current))
             print("user_input", user_input)
             if user_input is None:  # next page
                 print("\nNo item selected\n")
@@ -472,10 +487,13 @@ def main(
                 input_index = int(user_input)
                 print_results([dicts[input_index]])
 
-            user_input = input("[ENTER]: continue to go back, [b]: go (b)ack to results, [q]: to (q)uit: ")
-            if user_input.lower() == "b":
-                continue
-            elif user_input.lower() == "q":
+            try:
+                user_input = input("[ENTER]: back to results, [q or ctrl+C]: (q)uit")
+            except KeyboardInterrupt as ki:
+                print("\nUser exit")
+                exit(0)
+
+            if user_input.lower() == "q":
                 exit(0)
             elif user_input == "":
                 continue
@@ -497,15 +515,21 @@ def main(
     dicts_all = []
     i = 1
     while True:  # for all pages
-        target_url = "https://{domain}/torrents.php?search={search}&order={order}&category={category}&page={page}&by={by}"
+        target_url = "https://{domain}/torrents.php?search={search}&page={page}"
         target_url_formatted = target_url.format(
             domain=domain.strip(),
             search=quote(search),
-            order=order,
-            category=";".join(CATEGORY2CODE[category]),
             page=i,
-            by="DESC" if descending else "ASC",
         )
+
+        if sort_order:
+            target_url_formatted += "&by=" + sort_order.upper().strip()
+        if order:
+            target_url_formatted += "&order=" + order.strip()
+        if category:
+            target_url_formatted += "&category=" + ";".join(CATEGORY2CODE[category])
+
+
         r, html, cookies = get_page_html(target_url_formatted, cookies=cookies)
 
         with open(os.path.join(os.path.dirname(cache_file), _session_name + f"_torrents_{i}.html"), "w", encoding="utf8") as f:
