@@ -19,6 +19,7 @@ import os
 import re
 import sys
 import time
+import warnings
 import zipfile
 from functools import partial
 from http.cookies import SimpleCookie
@@ -27,7 +28,6 @@ from sys import platform
 
 import requests
 import wget
-import yaml
 from bs4 import BeautifulSoup
 from requests.utils import quote
 from tqdm import tqdm
@@ -40,6 +40,27 @@ PROGRAM_HOME = os.path.join(HOME_DIRECTORY, '.rarbgcli')
 os.makedirs(PROGRAM_HOME, exist_ok=True)
 COOKIES_PATH = os.path.join(PROGRAM_HOME, 'cookies.json')
 
+TORRENTGALAXY_DOMAINS = [
+    'https://rargb.to',
+    'https://www.rarbggo.to',
+    'https://www.rarbgproxy.to',
+    'https://www.rarbgo.to',
+    'https://www.proxyrarbg.to',
+    'https://rarbg.tw',
+    'https://rarbgprx.org',
+    'https://rarbgunblock.com',
+    'https://rarbgmirror.com',
+    'https://rarbgunblock.com',
+]
+TORRENTGALAXY_CATEGORY2CODE = {
+    'movies': 'movies',
+    'xxx': 'xxx',
+    'music': 'music',
+    'tvshows': 'tvshows',
+    'software': 'software',
+    'games': 'games',
+    'nonxxx': 'nonxxx',
+}
 CATEGORY2CODE = {
     'movies': '48;17;44;45;47;50;51;52;42;46'.split(';'),
     'xxx': '4'.split(';'),
@@ -365,7 +386,7 @@ def get_args():
     parser.add_argument('--category', '-c', choices=CATEGORY2CODE.keys(), default='nonxxx')
     parser.add_argument(
         '--domain',
-        default='rarbgunblocked.org',
+        default='rargb.to/',
         help='Domain to search, you could put an alternative mirror domain here',
     )
     parser.add_argument(
@@ -459,6 +480,36 @@ def cli():
     return main(**vars(args), _session_name=dict_to_fname(args))
 
 
+def build_url(search, page, category, domain, order, sort_order, torrentgalaxy_mode=False):
+    if not torrentgalaxy_mode:
+        target_url = 'https://{domain}/torrents.php?search={search}&page={page}'
+        target_url_formatted = target_url.format(
+            domain=domain.strip(),
+            search=quote(search),
+            page=page,
+        )
+        if sort_order:
+            target_url_formatted += '&by=' + sort_order.upper().strip()
+        if order:
+            target_url_formatted += '&order=' + order.strip()
+        if category:
+            target_url_formatted += '&category=' + ';'.join(CATEGORY2CODE[category])
+        return target_url_formatted
+    else:
+        target_url = 'https://{domain}/{category}/{page}?search={search}'
+        target_url_formatted = target_url.format(
+            domain=domain.strip(),
+            search=quote(search),
+            page=page,
+            category='search' if len(search) else TORRENTGALAXY_CATEGORY2CODE.get(category, ''),
+        )
+        if sort_order:
+            target_url_formatted += '&by=' + sort_order.upper().strip()
+        if order:
+            target_url_formatted += '&order=' + order.strip()
+        return target_url_formatted
+
+
 def main(
     search,
     category='',
@@ -474,6 +525,7 @@ def main(
     no_cookie=False,
     block_size='auto',
     _session_name='untitled',  # unique name based on args, used for caching
+    torrentgalaxy_mode=None,
 ):
 
     cookies = load_cookies(no_cookie)
@@ -496,7 +548,7 @@ def main(
                     print('Error:', e)
 
         # pretty print unique(dicts) as yaml
-        print('torrents:', yaml.dump(unique(dicts), default_flow_style=False))
+        # print('torrents:', yaml.dump(unique(dicts), default_flow_style=False))
 
         # reads file then merges with new dicts
         with open(cache_file, 'w', encoding='utf8') as f:
@@ -553,21 +605,18 @@ def main(
 
     dicts_all = []
     i = 1
+
+    if torrentgalaxy_mode is None:
+        torrentgalaxy_mode = 'https://' + domain.lstrip('https://').lstrip('http://').rstrip('/') in TORRENTGALAXY_DOMAINS
+
+    warnings.UserWarning(
+        'You are using one of the torrentgalaxy mirrors. These are not fully supported yet.\n'
+        'But it\'s the best we can do since the official rarbg.to was shutdown.\n'
+        'Please raise any issues in https://github.com/FarisHijazi/rarbgcli/issues'
+    )
+
     while True:  # for all pages
-        target_url = 'https://{domain}/torrents.php?search={search}&page={page}'
-        target_url_formatted = target_url.format(
-            domain=domain.strip(),
-            search=quote(search),
-            page=i,
-        )
-
-        if sort_order:
-            target_url_formatted += '&by=' + sort_order.upper().strip()
-        if order:
-            target_url_formatted += '&order=' + order.strip()
-        if category:
-            target_url_formatted += '&category=' + ';'.join(CATEGORY2CODE[category])
-
+        target_url_formatted = build_url(search, i, category, domain, order, sort_order, torrentgalaxy_mode=torrentgalaxy_mode)
         r, html, cookies = get_page_html(target_url_formatted, cookies=cookies)
 
         with open(os.path.join(os.path.dirname(cache_file), _session_name + f'_torrents_{i}.html'), 'w', encoding='utf8') as f:
@@ -595,15 +644,15 @@ def main(
                 'torrent': torrentfile,
                 'href': f"https://{domain}{torrent.get('href')}",
                 'date': datetime.datetime.strptime(
-                    str(torrent.findParent('tr').select_one('td:nth-child(3)').contents[0]), '%Y-%m-%d %H:%M:%S'
+                    str(torrent.findParent('tr').select_one('td:nth-child(4)').contents[0]), '%Y-%m-%d %H:%M:%S'
                 ).timestamp(),
                 'category': CODE2CATEGORY.get(
-                    torrent.findParent('tr').select_one('td:nth-child(1) img').get('src').split('/')[-1].replace('cat_new', '').replace('.gif', ''),
+                    torrent.findParent('tr').select_one('td:nth-child(2) img').get('src').split('/')[-1].replace('cat_new', '').replace('.gif', ''),
                     'UNKOWN',
                 ),
-                'size': format_size(parse_size(torrent.findParent('tr').select_one('td:nth-child(4)').contents[0]), block_size),
-                'seeders': int(torrent.findParent('tr').select_one('td:nth-child(5) > font').contents[0]),
-                'leechers': int(torrent.findParent('tr').select_one('td:nth-child(6)').contents[0]),
+                'size': format_size(parse_size(torrent.findParent('tr').select_one('td:nth-child(5)').contents[0]), block_size),
+                'seeders': int(torrent.findParent('tr').select_one('td:nth-child(6) > font').contents[0]),
+                'leechers': int(torrent.findParent('tr').select_one('td:nth-child(7)').contents[0]),
                 'uploader': str(torrent.findParent('tr').select_one('td:nth-child(8)').contents[0]),
                 'magnet': magnet,
             }
