@@ -13,12 +13,14 @@ https://github.com/FarisHijazi/rarbgcli
 
 import argparse
 import asyncio
+import concurrent.futures
 import datetime
 import json
 import os
 import re
 import sys
 import time
+import traceback
 import warnings
 import zipfile
 from functools import partial
@@ -354,6 +356,7 @@ def get_user_input_interactive(torrent_dicts, start_index=0):
                 ),
             }
         )
+    choices.append({'value': 'all', 'name': '[download all ⏬]'})
     choices.append({'value': 'next', 'name': 'next page >>'})
 
     import questionary
@@ -402,6 +405,12 @@ def get_args():
         choices=['asc', 'desc'],
         default=None,
         help='Sort order ascending or descending (only availeble with --order)',
+    )
+    parser.add_argument(
+        '--show_empty',
+        action='store_true',
+        default=None,
+        help='Force show torrents without download or magnet links.',
     )
 
     output_group = parser.add_argument_group('Output options')
@@ -526,6 +535,7 @@ def main(
     block_size='auto',
     _session_name='untitled',  # unique name based on args, used for caching
     torrentgalaxy_mode=None,
+    show_empty=False,  # will show torrents that have no magnet link
 ):
 
     if torrentgalaxy_mode is None:
@@ -533,22 +543,26 @@ def main(
 
     cookies = load_cookies(no_cookie)
 
+    # TODO: make this parallel
+    def process_dict(d):
+        if not d['magnet']:
+            print('fetching magnet link for', d['title'])
+            try:
+                html_subpage = requests.get(d['href'], cookies=cookies).text.encode('utf-8')
+                parsed_html_subpage = BeautifulSoup(html_subpage, 'html.parser')
+                d['magnet'] = parsed_html_subpage.select_one('a[href^="magnet:"]').get('href')
+                d['torrent_file'] = parsed_html_subpage.select_one('a[href^="/download.php"]').get('href')
+            except Exception:
+                pass
+
     def print_results(dicts):
         if sort:
             dicts.sort(key=lambda x: x[sort], reverse=True)
         if limit < float('inf'):
             dicts = dicts[: int(limit)]
 
-        for d in dicts:
-            if not d['magnet']:
-                print('fetching magnet link for', d['title'])
-                try:
-                    html_subpage = requests.get(d['href'], cookies=cookies).text.encode('utf-8')
-                    parsed_html_subpage = BeautifulSoup(html_subpage, 'html.parser')
-                    d['magnet'] = parsed_html_subpage.select_one('a[href^="magnet:"]').get('href')
-                    d['torrent_file'] = parsed_html_subpage.select_one('a[href^="/download.php"]').get('href')
-                except Exception as e:
-                    print('Error:', e)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            concurrent.futures.wait([executor.submit(process_dict, d) for d in dicts])
 
         # pretty print unique(dicts) as yaml
         # print('torrents:', yaml.dump(unique(dicts), default_flow_style=False))
@@ -581,10 +595,11 @@ def main(
                 print('\nNo item selected\n')
             elif user_input == 'next':
                 break
+            elif user_input == 'all':
+                print_results(dicts_all)
             else:  # indexes
                 input_index = int(user_input)
                 print_results([dicts[input_index]])
-
             try:
                 user_input = input('[ENTER]: back to results, [q or ctrl+C]: (q)uit')
             except KeyboardInterrupt:
@@ -605,6 +620,7 @@ def main(
                 cache = json.load(f)
         except Exception as e:
             print('Error:', e)
+            traceback.print_exc()
             os.remove(cache_file)
             cache = []
     else:
@@ -670,11 +686,23 @@ def main(
             for (torrent, magnet, torrentfile) in zip(torrents, magnets, torrentfiles)
         ]
 
+        # drop those that aren't matching the category
+        if category and category != 'nonxxx':
+            dicts_current = list(filter(lambda d: d['category'] == category, dicts_current))
+        if category == 'nonxxx':
+            dicts_current = list(filter(lambda d: d['category'] != 'xxx', dicts_current))
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            concurrent.futures.wait([executor.submit(process_dict, d) for d in dicts_current])
+        # remove torrents with empty magnet links
+        if not show_empty:
+            dicts_current = list(filter(lambda d: not not d['magnet'], dicts_current))
+
         dicts_all += dicts_current
 
         cache = list(unique(dicts_all + cache))
 
-        if interactive:
+        if interactive and len(dicts_current) > 0:
             interactive_loop(dicts_current)
 
         if len(list(filter(None, torrents))) >= limit:
