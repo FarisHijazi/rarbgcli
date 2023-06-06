@@ -498,7 +498,7 @@ def build_url(search, page, category, domain, order, sort_order, torrentgalaxy_m
     else:
         target_url = 'https://{domain}/{category}/{page}?search={search}'
         target_url_formatted = target_url.format(
-            domain=domain.strip(),
+            domain=domain.strip().rstrip('/'),
             search=quote(search),
             page=page,
             category='search' if len(search) else TORRENTGALAXY_CATEGORY2CODE.get(category, ''),
@@ -527,6 +527,9 @@ def main(
     _session_name='untitled',  # unique name based on args, used for caching
     torrentgalaxy_mode=None,
 ):
+
+    if torrentgalaxy_mode is None:
+        torrentgalaxy_mode = 'https://' + domain.lstrip('https://').lstrip('http://').rstrip('/') in TORRENTGALAXY_DOMAINS
 
     cookies = load_cookies(no_cookie)
 
@@ -558,7 +561,11 @@ def main(
         if download_torrents is True or interactive and input(f'Open {len(dicts)} torrent files in browser for downloading? (Y/n) ').lower() != 'n':
             torrent_urls = [d['torrent'] for d in dicts]
             magnet_urls = [d['magnet'] for d in dicts]
-            asyncio.run(open_torrentfiles(torrent_urls + magnet_urls))
+            if torrentgalaxy_mode:
+                urls = magnet_urls
+            else:
+                urls = torrent_urls + magnet_urls
+            asyncio.run(open_torrentfiles(urls))
 
         if magnet:
             real_print('\n'.join([t['magnet'] for t in dicts]))
@@ -606,13 +613,10 @@ def main(
     dicts_all = []
     i = 1
 
-    if torrentgalaxy_mode is None:
-        torrentgalaxy_mode = 'https://' + domain.lstrip('https://').lstrip('http://').rstrip('/') in TORRENTGALAXY_DOMAINS
-
-    warnings.UserWarning(
+    warnings.warn(
         'You are using one of the torrentgalaxy mirrors. These are not fully supported yet.\n'
         'But it\'s the best we can do since the official rarbg.to was shutdown.\n'
-        'Please raise any issues in https://github.com/FarisHijazi/rarbgcli/issues'
+        'Please raise any issues in https://github.com/FarisHijazi/rarbgcli/issues',
     )
 
     while True:  # for all pages
@@ -638,22 +642,29 @@ def main(
         torrents, magnets, torrentfiles = zip(*[[a, m, d] for (a, m, d) in zip(torrents, magnets, torrentfiles)])
         torrents, magnets, torrentfiles = list(torrents), list(magnets), list(torrentfiles)
 
+        table_offset = 1 if torrentgalaxy_mode else 0
+
         dicts_current = [
             {
                 'title': torrent.get('title'),
                 'torrent': torrentfile,
                 'href': f"https://{domain}{torrent.get('href')}",
                 'date': datetime.datetime.strptime(
-                    str(torrent.findParent('tr').select_one('td:nth-child(4)').contents[0]), '%Y-%m-%d %H:%M:%S'
+                    str(torrent.findParent('tr').select_one(f'td:nth-child({3+table_offset})').contents[0]), '%Y-%m-%d %H:%M:%S'
                 ).timestamp(),
                 'category': CODE2CATEGORY.get(
-                    torrent.findParent('tr').select_one('td:nth-child(2) img').get('src').split('/')[-1].replace('cat_new', '').replace('.gif', ''),
+                    torrent.findParent('tr')
+                    .select_one(f'td:nth-child({1+table_offset}) img')
+                    .get('src')
+                    .split('/')[-1]
+                    .replace('cat_new', '')
+                    .replace('.gif', ''),
                     'UNKOWN',
                 ),
-                'size': format_size(parse_size(torrent.findParent('tr').select_one('td:nth-child(5)').contents[0]), block_size),
-                'seeders': int(torrent.findParent('tr').select_one('td:nth-child(6) > font').contents[0]),
-                'leechers': int(torrent.findParent('tr').select_one('td:nth-child(7)').contents[0]),
-                'uploader': str(torrent.findParent('tr').select_one('td:nth-child(8)').contents[0]),
+                'size': format_size(parse_size(torrent.findParent('tr').select_one(f'td:nth-child({4+table_offset})').contents[0]), block_size),
+                'seeders': int(torrent.findParent('tr').select_one(f'td:nth-child({5+table_offset}) > font').contents[0]),
+                'leechers': int(torrent.findParent('tr').select_one(f'td:nth-child({6+table_offset})').contents[0]),
+                'uploader': str(torrent.findParent('tr').select_one(f'td:last-child').contents[0]),
                 'magnet': magnet,
             }
             for (torrent, magnet, torrentfile) in zip(torrents, magnets, torrentfiles)
