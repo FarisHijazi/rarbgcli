@@ -1,5 +1,11 @@
 # [RARBG-CLI `rarbgcli`](https://github.com/FarisHijazi/rarbgcli)
 
+⚠⚠⚠⚠⚠  
+Sadly the official [rarbg.to](https://rarbg.to) is down for good, but this script will continue to work on similar mirrors like [https://rargb.to/](https://rargb.to/)  
+⚠⚠⚠⚠⚠
+
+---
+
 RARBG command line interface for scraping the [rarbg.to](rarbg.to) torrent search engine.
 
 Outputs a torrent information as JSON from a [rarbg.to](rarbg.to) search.
