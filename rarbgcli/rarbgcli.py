@@ -22,6 +22,7 @@ import sys
 import time
 import traceback
 import warnings
+import webbrowser
 import zipfile
 from functools import partial
 from http.cookies import SimpleCookie
@@ -254,12 +255,7 @@ def extract_torrent_file(anchor, domain='rarbgunblocked.org'):
 
 
 def open_url(url):
-    if platform == 'win32':
-        os.startfile(url)
-    elif platform in ['linux', 'linux2']:
-        os.system('xdg-open ' + url)
-    else:  # if mac os
-        os.system('open ' + url)
+    webbrowser.open(url)
 
 
 async def open_torrentfiles(urls):
