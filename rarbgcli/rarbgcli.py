@@ -254,6 +254,13 @@ def extract_torrent_file(anchor, domain='rarbgunblocked.org'):
     )
 
 
+def tryint(x):
+    try:
+        return int(x)
+    except ValueError as e:
+        print('[W]:' + e)
+
+
 def open_url(url):
     webbrowser.open(url)
 
@@ -328,7 +335,7 @@ def unique(dicts):
     return deduped
 
 
-def get_user_input_interactive(torrent_dicts, start_index=0):
+def get_user_input_interactive(torrent_dicts, start_index=0, current_page=None, total_pages=None):
     header = ' '.join(['SN'.ljust(4), 'TORRENT NAME'.ljust(80), 'SEEDS'.ljust(6), 'LEECHES'.ljust(6), 'SIZE'.center(12), 'UPLOADER'])
     choices = []
     for i in range(len(torrent_dicts)):
@@ -353,7 +360,7 @@ def get_user_input_interactive(torrent_dicts, start_index=0):
             }
         )
     choices.append({'value': 'all', 'name': '[download all ⏬]'})
-    choices.append({'value': 'next', 'name': 'next page >>'})
+    choices.append({'value': 'next', 'name': f'[{current_page}/{total_pages}] next page >>'})
 
     import questionary
     from prompt_toolkit import styles
@@ -582,10 +589,12 @@ def main(
         else:
             real_print(json.dumps(dicts, indent=4))
 
-    def interactive_loop(dicts):
+    def interactive_loop(dicts, current_page=None, total_pages=None):
         while interactive:
             os.system('cls||clear')
-            user_input = get_user_input_interactive(dicts, start_index=len(dicts_all) - len(dicts_current))
+            user_input = get_user_input_interactive(
+                dicts, start_index=len(dicts_all) - len(dicts_current), current_page=current_page, total_pages=total_pages
+            )
             print('user_input', user_input)
             if user_input is None:  # next page
                 print('\nNo item selected\n')
@@ -640,11 +649,21 @@ def main(
         parsed_html = BeautifulSoup(html, 'html.parser')
         torrents = parsed_html.select('tr.lista2 a[href^="/torrent/"][title]')
 
+        total_pages = '1?'
+        try:
+            pagelinks = parsed_html.select('#pager_links > a')
+            total_pages = tryint(pagelinks[-1].text)
+            if total_pages is None:
+                total_pages = tryint(pagelinks[-3].text)
+        except Exception:
+            # print('[W] failed to get total pages')
+            pass
+
         if r.status_code != 200:
             print('error', r.status_code)
             break
 
-        print(f'{len(torrents)} torrents found')
+        print(f'{len(torrents)} torrents found in page')
         if len(torrents) == 0:
             break
         magnets = list(map(extract_magnet, torrents))
@@ -699,13 +718,14 @@ def main(
         cache = list(unique(dicts_all + cache))
 
         if interactive and len(dicts_current) > 0:
-            interactive_loop(dicts_current)
+            interactive_loop(dicts_current, current_page=i, total_pages=total_pages)
 
         if len(list(filter(None, torrents))) >= limit:
             print(f'reached limit {limit}, stopping')
             break
         i += 1
 
+    print(f'total torrents found: {len(dicts_all)}')
     if not interactive:
         dicts_all = list(unique(dicts_all + cache))
         print_results(dicts_all)
