@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sh test.sh > /dev/null && \
+pytest test > /dev/null && \
   sh gittag-increment.sh && \
   git push && \
   git push --tags && \

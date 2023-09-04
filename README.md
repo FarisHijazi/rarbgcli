@@ -1,7 +1,7 @@
 # [RARBG-CLI `rarbgcli`](https://github.com/FarisHijazi/rarbgcli)
 
-⚠⚠⚠⚠⚠  
-Sadly the official [rarbg.to](https://rarbg.to) is down for good, but this script will continue to work on similar mirrors like [https://rargb.to/](https://rargb.to/)  
+⚠⚠⚠⚠⚠
+Sadly the official [rarbg.to](https://rarbg.to) is down for good, but this script will continue to work on similar mirrors like [https://rargb.to/](https://rargb.to/)
 ⚠⚠⚠⚠⚠
 
 ---

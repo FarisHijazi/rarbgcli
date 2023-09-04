@@ -383,7 +383,7 @@ def get_user_input_interactive(torrent_dicts, start_index=0, current_page=None, 
     return answer
 
 
-def get_args():
+def get_args(argv=None):
     orderkeys = ['data', 'filename', 'leechers', 'seeders', 'size', '']
     sortkeys = ['title', 'date', 'size', 'seeders', 'leechers', '']
     parser = argparse.ArgumentParser(__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -458,7 +458,7 @@ def get_args():
         action='store_true',
         help="Don't use CAPTCHA cookie from previous runs (will need to resolve a new CAPTCHA)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.interactive is None:
         args.interactive = sys.stdout.isatty()  # automatically decide based on if tty
@@ -486,8 +486,8 @@ def load_cookies(no_cookie):
     return cookies
 
 
-def cli():
-    args = get_args()
+def cli(argv=None):
+    args = get_args(argv)
     print(vars(args))
     return main(**vars(args), _session_name=dict_to_fname(args))
 
