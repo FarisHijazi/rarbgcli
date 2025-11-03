@@ -7,7 +7,7 @@ import setuptools
 with open('README.md', 'r') as fh:
     long_description = fh.read().replace('](', '](https://raw.githubusercontent.com/FarisHijazi/rarbgcli/master/')
 with open('requirements.txt', 'r') as fh:
-    rqeuirements = fh.readlines()
+    requirements = fh.readlines()
 
 version = subprocess.Popen('git describe --abbrev=0 --tags', shell=True, stdout=subprocess.PIPE).stdout.read().decode().strip().lstrip('v')
 
@@ -22,7 +22,7 @@ setuptools.setup(
     long_description_content_type='text/markdown',
     packages=setuptools.find_packages(),
     python_requires='>=3.6',
-    install_requires=rqeuirements,
+    install_requires=requirements,
     keywords='rarbg torrent rarbgcli rarbgapi cli api scraper rarbg-cli rarbg-api rarbg-scraper',
     entry_points={
         'console_scripts': [

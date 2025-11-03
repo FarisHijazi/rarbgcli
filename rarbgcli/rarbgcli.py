@@ -99,24 +99,24 @@ def solveCaptcha(threat_defence_url):
 
     def img2txt():
         try:
-            clk_here_button = driver.find_element_by_link_text('Click here')
+            clk_here_button = driver.find_element(By.LINK_TEXT, 'Click here')
             clk_here_button.click()
             time.sleep(10)
             WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, 'solve_string')))
         except Exception:
             pass
-        finally:
-            element = driver.find_elements_by_css_selector('img')[1]
-            location = element.location
-            size = element.size
-            png = driver.get_screenshot_as_png()
-            x = location['x']
-            y = location['y']
-            width = location['x'] + size['width']
-            height = location['y'] + size['height']
-            im = Image.open(BytesIO(png))
-            im = im.crop((int(x), int(y), int(width), int(height)))
-            return pytesseract.image_to_string(im)
+
+        element = driver.find_elements(By.CSS_SELECTOR, 'img')[1]
+        location = element.location
+        size = element.size
+        png = driver.get_screenshot_as_png()
+        x = location['x']
+        y = location['y']
+        width = location['x'] + size['width']
+        height = location['y'] + size['height']
+        im = Image.open(BytesIO(png))
+        im = im.crop((int(x), int(y), int(width), int(height)))
+        return pytesseract.image_to_string(im)
 
     options = Options()
     options.add_argument('--no-sandbox')
@@ -129,7 +129,7 @@ def solveCaptcha(threat_defence_url):
     # chromedriver_path = get_chrome_driver.main(PROGRAM_HOME)
     driver = webdriver.Chrome(
         ChromeDriverManager(path=PROGRAM_HOME).install(),
-        chrome_options=options,
+        options=options,
         service_log_path=('NUL' if sys.platform == 'win32' else '/dev/null'),
     )
     print('successfully loaded chrome driver')
@@ -147,7 +147,7 @@ def solveCaptcha(threat_defence_url):
         download_tesseract(PROGRAM_HOME)
         solution = img2txt()
 
-    text_field = driver.find_element_by_id('solve_string')
+    text_field = driver.find_element(By.ID, 'solve_string')
     text_field.send_keys(solution)
     try:
         text_field.send_keys(Keys.RETURN)
